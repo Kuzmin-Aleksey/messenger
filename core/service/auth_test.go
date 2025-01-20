@@ -24,7 +24,6 @@ func init() {
 }
 
 func TestAuthService_AccessToken(t *testing.T) {
-
 	token, _, err := s.newAccessToken(testId)
 	require.NoError(t, err, "create access token")
 
