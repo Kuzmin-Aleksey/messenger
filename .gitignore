@@ -1,3 +1,4 @@
 config/config.json
 .idea
 logs.txt
+adapters/cache/redis/test_config.go

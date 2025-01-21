@@ -80,11 +80,11 @@ func (s *AuthService) Login(email, password string) (*models.Tokens, error) {
 }
 
 func (s *AuthService) UpdateTokens(refresh string) (*models.Tokens, error) {
-	userId, ok, err := s.cache.Get(refresh)
+	userId, err := s.cache.Get(refresh)
 	if err != nil {
 		return nil, tr.Trace(err)
 	}
-	if !ok {
+	if userId == 0 {
 		return nil, ErrUnauthorized
 	}
 

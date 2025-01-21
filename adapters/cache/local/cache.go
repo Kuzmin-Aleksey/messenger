@@ -44,17 +44,17 @@ func (c *Cache) Set(key string, v int) error {
 	return nil
 }
 
-func (c *Cache) Get(key string) (int, bool, error) {
+func (c *Cache) Get(key string) (int, error) {
 	v, ok := c.c[key]
 	if ok {
 		if time.Now().Before(v.t) {
-			return v.v, ok, nil
+			return v.v, nil
 		} else {
 			delete(c.c, key)
 		}
 	}
 
-	return 0, false, nil
+	return 0, nil
 }
 
 func (c *Cache) Del(key string) error {
