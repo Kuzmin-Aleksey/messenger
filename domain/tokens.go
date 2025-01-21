@@ -1,12 +1,6 @@
-package models
+package domain
 
 import "time"
-
-type AuthUser struct {
-	Id       int    `json:"id"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
 
 type Tokens struct {
 	AccessToken           string    `json:"access_token"`

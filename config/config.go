@@ -15,3 +15,10 @@ type RedisConfig struct {
 	Password string `json:"password"`
 	DB       int    `json:"db"`
 }
+
+type MySQL struct {
+	Host     string `json:"host"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Schema   string `json:"schema"`
+}

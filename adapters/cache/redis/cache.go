@@ -2,10 +2,12 @@ package cache
 
 import (
 	"context"
-	"errors"
+	errorsutils "errors"
 	"github.com/redis/go-redis/v9"
 	"messanger/config"
-	tr "messanger/pkg/error_trace"
+	"messanger/domain"
+	"messanger/pkg/errors"
+	"net/http"
 	"strconv"
 	"time"
 )
@@ -23,7 +25,7 @@ func NewCache(cfg *config.RedisConfig) (*Cache, error) {
 	})
 
 	if err := client.Ping(context.Background()).Err(); err != nil {
-		return nil, tr.Trace(err)
+		return nil, err
 	}
 
 	return &Cache{
@@ -36,20 +38,20 @@ func (c *Cache) SetTTL(ttl time.Duration) {
 	c.ttl = ttl
 }
 
-func (c *Cache) Set(key string, v int) error {
+func (c *Cache) Set(key string, v int) *errors.Error {
 	if err := c.client.Set(context.Background(), key, v, c.ttl).Err(); err != nil {
-		return tr.Trace(err)
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
 }
 
-func (c *Cache) Get(key string) (int, error) {
+func (c *Cache) Get(key string) (int, *errors.Error) {
 	res := c.client.Get(context.Background(), key)
 	if err := res.Err(); err != nil {
-		if errors.Is(err, redis.Nil) {
+		if errorsutils.Is(err, redis.Nil) {
 			return 0, nil
 		}
-		return 0, err
+		return 0, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 
 	v, _ := strconv.Atoi(res.Val())
@@ -57,9 +59,9 @@ func (c *Cache) Get(key string) (int, error) {
 	return v, nil
 }
 
-func (c *Cache) Del(key string) error {
+func (c *Cache) Del(key string) *errors.Error {
 	if err := c.client.Del(context.Background(), key).Err(); err != nil {
-		return tr.Trace(err)
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
 }

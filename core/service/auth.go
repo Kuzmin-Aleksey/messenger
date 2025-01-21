@@ -2,27 +2,25 @@ package service
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"log"
 	"messanger/config"
 	"messanger/core/ports"
-	"messanger/models"
-	tr "messanger/pkg/error_trace"
+	"messanger/domain"
+	"messanger/pkg/errors"
+	"net/http"
 	"time"
 )
 
 type AuthService struct {
 	cache ports.TokenCache
-	repo  ports.AuthUsers
+	repo  ports.UsersRepo
 	cfg   *config.AuthServiceConfig
 }
 
-var ErrUnauthorized = errors.New("unauthorized")
-
-func NewAuthService(cache ports.TokenCache, repo ports.AuthUsers, cfg *config.AuthServiceConfig) *AuthService {
+func NewAuthService(cache ports.TokenCache, repo ports.UsersRepo, cfg *config.AuthServiceConfig) *AuthService {
 	cache.SetTTL(cfg.RefreshTokenTTL)
 	return &AuthService{
 		cache: cache,
@@ -31,47 +29,31 @@ func NewAuthService(cache ports.TokenCache, repo ports.AuthUsers, cfg *config.Au
 	}
 }
 
-func (s *AuthService) CreateUser(user *models.AuthUser) error {
-	exist, err := s.repo.IsExist(user.Email)
+func (s *AuthService) Login(email, password string) (*domain.Tokens, *errors.Error) {
+	user, err := s.repo.GetInfoByEmail(email)
 	if err != nil {
-		return tr.Trace(err)
+		return nil, err.Trace()
 	}
-	if exist {
-		return errors.New("user with this email already exists")
+	if user == nil {
+		return nil, errors.New(domain.ErrUserAlreadyExists, domain.ErrUserAlreadyExists, http.StatusNotFound)
 	}
 
-	user.Password = s.hashPassword(user.Password)
-	if err := s.repo.New(user); err != nil {
-		return tr.Trace(err)
-	}
-	return nil
-}
-
-func (s *AuthService) Login(email, password string) (*models.Tokens, error) {
-	ok, err := s.repo.CheckPassword(s.hashPassword(password), email)
-	if err != nil {
-		return nil, tr.Trace(err)
-	}
-	if !ok {
-		return nil, ErrUnauthorized
-	}
-	user, err := s.repo.GetUserByEmail(email)
-	if err != nil {
-		return nil, tr.Trace(err)
+	if user.Password != s.hashPassword(password) {
+		return nil, errors.New1Msg("invalid password", http.StatusUnauthorized)
 	}
 
 	access, accessExpires, err := s.newAccessToken(user.Id)
 	if err != nil {
-		return nil, tr.Trace(err)
+		return nil, err.Trace()
 	}
 
 	refreshExpired := time.Now().Add(s.cfg.RefreshTokenTTL)
 	refresh := s.newRefreshToken()
 	if err := s.cache.Set(refresh, user.Id); err != nil {
-		return nil, tr.Trace(err)
+		return nil, err.Trace()
 	}
 
-	return &models.Tokens{
+	return &domain.Tokens{
 		AccessToken:           access,
 		RefreshToken:          refresh,
 		AccessTokenExpiresAt:  accessExpires,
@@ -79,31 +61,31 @@ func (s *AuthService) Login(email, password string) (*models.Tokens, error) {
 	}, nil
 }
 
-func (s *AuthService) UpdateTokens(refresh string) (*models.Tokens, error) {
+func (s *AuthService) UpdateTokens(refresh string) (*domain.Tokens, *errors.Error) {
 	userId, err := s.cache.Get(refresh)
 	if err != nil {
-		return nil, tr.Trace(err)
+		return nil, err.Trace()
 	}
 	if userId == 0 {
-		return nil, ErrUnauthorized
+		return nil, errors.New(domain.ErrUnauthorized, domain.ErrUnauthorized, http.StatusUnauthorized)
 	}
 
 	if err := s.cache.Del(refresh); err != nil {
-		return nil, tr.Trace(err)
+		return nil, err.Trace()
 	}
 
 	access, accessExpired, err := s.newAccessToken(userId)
 	if err != nil {
-		return nil, tr.Trace(err)
+		return nil, err.Trace()
 	}
 
 	refreshExpired := time.Now().Add(s.cfg.RefreshTokenTTL)
 	newRefresh := s.newRefreshToken()
 	if err := s.cache.Set(newRefresh, userId); err != nil {
-		return nil, tr.Trace(err)
+		return nil, err.Trace()
 	}
 
-	return &models.Tokens{
+	return &domain.Tokens{
 		AccessToken:           access,
 		RefreshToken:          refresh,
 		AccessTokenExpiresAt:  accessExpired,
@@ -113,7 +95,11 @@ func (s *AuthService) UpdateTokens(refresh string) (*models.Tokens, error) {
 
 var tokenKey = []byte("ac4873yqc34v5")
 
-func (s *AuthService) CheckAccessToken(access string) (int, error) {
+const (
+	ErrInvalidToken = "invalid token"
+)
+
+func (s *AuthService) CheckAccessToken(access string) (int, *errors.Error) {
 	claims, err := jwt.Parse(access, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -122,20 +108,20 @@ func (s *AuthService) CheckAccessToken(access string) (int, error) {
 		return tokenKey, nil
 	})
 	if err != nil {
-		return 0, tr.Trace(err)
+		return 0, errors.New(err, ErrInvalidToken, http.StatusUnauthorized)
 	}
 	mapClaims, ok := claims.Claims.(jwt.MapClaims)
 	if !ok {
-		return 0, errors.New("claims is not a map")
+		return 0, errors.New("claims is not a map", ErrInvalidToken, http.StatusUnauthorized)
 	}
 
 	userId, ok := mapClaims["id"]
 	if !ok {
-		return 0, errors.New("userId is not in map claims")
+		return 0, errors.New("userId is not in map claims", ErrInvalidToken, http.StatusUnauthorized)
 	}
 	tUnix, ok := mapClaims["expires"]
 	if !ok {
-		return 0, errors.New("expires time is not in map claims")
+		return 0, errors.New("expires time is not in map claims", ErrInvalidToken, http.StatusUnauthorized)
 	}
 
 	log.Println(
@@ -143,13 +129,13 @@ func (s *AuthService) CheckAccessToken(access string) (int, error) {
 	)
 
 	if time.Now().After(time.Unix(int64(tUnix.(float64)), 0)) {
-		return 0, ErrUnauthorized
+		return 0, errors.New1Msg("token expired", http.StatusUnauthorized)
 	}
 
 	return int(userId.(float64)), nil
 }
 
-func (s *AuthService) newAccessToken(userId int) (string, time.Time, error) {
+func (s *AuthService) newAccessToken(userId int) (string, time.Time, *errors.Error) {
 	expires := time.Now().Add(s.cfg.AccessTokenTTL)
 
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS512, jwt.MapClaims{
@@ -158,7 +144,7 @@ func (s *AuthService) newAccessToken(userId int) (string, time.Time, error) {
 	})
 	token, err := claims.SignedString(tokenKey)
 	if err != nil {
-		return "", expires, tr.Trace(err)
+		return "", expires, errors.New(err, "invalid token", http.StatusBadRequest)
 	}
 	return token, expires, nil
 }

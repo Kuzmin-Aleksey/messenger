@@ -1,10 +1,11 @@
 package httpAPI
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
-	"messanger/models"
-	tr "messanger/pkg/error_trace"
+	"messanger/domain"
+	"messanger/pkg/errors"
 	"net/http"
 	"strconv"
 )
@@ -28,8 +29,7 @@ type Channel struct {
 type EventHandler struct {
 	connects   map[int]map[int]*websocket.Conn
 	wsUpgrader *websocket.Upgrader
-
-	errors Logger
+	errors     Logger
 }
 
 func NewEventHandler() *EventHandler {
@@ -44,14 +44,14 @@ func NewEventHandler() *EventHandler {
 	return h
 }
 
-func (e *EventHandler) OnCreateMessage(m *models.Message) {
+func (e *EventHandler) OnCreateMessage(m *domain.Message) {
 	e.writeToChat(m.ChatId, &Event{
 		Type: EventTypeCreate,
 		Data: m,
 	})
 }
 
-func (e *EventHandler) OnUpdateMessage(m *models.Message) {
+func (e *EventHandler) OnUpdateMessage(m *domain.Message) {
 	e.writeToChat(m.ChatId, &Event{
 		Type: EventTypeUpdate,
 		Data: m,
@@ -73,7 +73,7 @@ func (e *EventHandler) writeToChat(chatId int, v any) {
 
 	for userId, conn := range chat {
 		if err := conn.WriteJSON(v); err != nil {
-			e.errors.Println(fmt.Errorf("error on WriteJSON: %v, user id: %d", tr.Trace(err), userId))
+			e.errors.Println(fmt.Errorf("error on WriteJSON: %v, user id: %d", errors.Trace(err), userId))
 			conn.Close()
 			e.removeConnect(chatId, userId)
 		}
@@ -96,21 +96,25 @@ func (e *EventHandler) removeConnect(chatId int, userId int) {
 
 func (e *EventHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		e.errors.Println(tr.Trace(err))
+		e.errors.Println(errors.Trace(err))
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(responseError{domain.ErrParseForm})
 		return
 	}
 
 	chatId, err := strconv.Atoi(r.Form.Get("chat_id"))
 	if err != nil {
-		e.errors.Println(tr.Trace(err))
+		e.errors.Println(errors.Trace(err))
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(responseError{"invalid chat_id parameter"})
 		return
 	}
 
 	ws, err := e.wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
-		e.errors.Println(tr.Trace(err))
+		e.errors.Println(errors.Trace(err))
 		return
 	}
 

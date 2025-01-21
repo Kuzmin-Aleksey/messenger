@@ -2,8 +2,9 @@ package service
 
 import (
 	"messanger/core/ports"
-	"messanger/models"
-	tr "messanger/pkg/error_trace"
+	"messanger/domain"
+	"messanger/pkg/errors"
+	"net/http"
 )
 
 type ChatService struct {
@@ -14,42 +15,42 @@ func NewChatService(repo ports.ChatsRepo) *ChatService {
 	return &ChatService{repo: repo}
 }
 
-func (s *ChatService) NewChat(chat *models.Chat) error {
+func (s *ChatService) NewChat(chat *domain.Chat) *errors.Error {
 	if len(chat.Users) == 0 {
-		return tr.Trace("no users in chat")
+		return errors.New1Msg("no users in chat", http.StatusBadRequest)
 	}
 	if err := s.repo.New(chat); err != nil {
-		return tr.Trace(err)
+		return err.Trace()
 	}
 	return nil
 }
 
-func (s *ChatService) UpdateChar(chat *models.Chat) error {
+func (s *ChatService) UpdateChar(chat *domain.Chat) *errors.Error {
 	if err := s.repo.Update(chat); err != nil {
-		return tr.Trace(err)
+		return err.Trace()
 	}
 	return nil
 }
 
-func (s *ChatService) CheckUserInChat(chatId int, userId int) (bool, error) {
+func (s *ChatService) CheckUserInChat(chatId int, userId int) (bool, *errors.Error) {
 	exist, err := s.repo.CheckUserInChat(chatId, userId)
 	if err != nil {
-		return exist, tr.Trace(err)
+		return exist, err.Trace()
 	}
 	return exist, nil
 }
 
-func (s *ChatService) GetChat(chatId int) (*models.Chat, error) {
+func (s *ChatService) GetChat(chatId int) (*domain.Chat, *errors.Error) {
 	chat, err := s.repo.GetById(chatId)
 	if err != nil {
-		return nil, tr.Trace(err)
+		return nil, err.Trace()
 	}
 	return chat, nil
 }
 
-func (s *ChatService) Delete(chatId int) error {
+func (s *ChatService) Delete(chatId int) *errors.Error {
 	if err := s.repo.Delete(chatId); err != nil {
-		return tr.Trace(err)
+		return err.Trace()
 	}
 	return nil
 }

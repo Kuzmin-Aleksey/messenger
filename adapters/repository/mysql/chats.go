@@ -2,9 +2,10 @@ package mysql
 
 import (
 	"database/sql"
-	"errors"
-	"messanger/models"
-	tr "messanger/pkg/error_trace"
+	errorsutils "errors"
+	"messanger/domain"
+	"messanger/pkg/errors"
+	"net/http"
 )
 
 type Chats struct {
@@ -15,29 +16,29 @@ func NewChats(db *sql.DB) *Chats {
 	return &Chats{db}
 }
 
-func (c *Chats) New(chat *models.Chat) error {
+func (c *Chats) New(chat *domain.Chat) *errors.Error {
 	res, err := c.db.Exec("INSERT INTO chats (name) VALUES (?)", chat.Name)
 	if err != nil {
-		return tr.Trace(err)
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	chatId, err := res.LastInsertId()
 	if err != nil {
-		return tr.Trace(err)
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	chat.Id = int(chatId)
 
 	for _, user := range chat.Users {
 		if _, err := c.db.Exec("INSERT INTO user_2_chat (user_id, chat_id) VALUES (?, ?)", user.Id, chat.Id); err != nil {
-			return tr.Trace(err)
+			return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 		}
 	}
 
 	return nil
 }
 
-func (c *Chats) Update(chat *models.Chat) error {
+func (c *Chats) Update(chat *domain.Chat) *errors.Error {
 	if _, err := c.db.Exec("UPDATE chats SET name = ? WHERE id = ?", chat.Name, chat.Id); err != nil {
-		return tr.Trace(err)
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
 }
@@ -50,25 +51,28 @@ FROM user_2_chat
 inner join users ON users.id = user_2_chat.user_id
 WHERE user_2_chat.chat_id = ?`
 
-func (c *Chats) GetById(id int) (*models.Chat, error) {
-	var chat models.Chat
+func (c *Chats) GetById(id int) (*domain.Chat, *errors.Error) {
+	var chat domain.Chat
 
 	if err := c.db.QueryRow("SELECT * FROM chats WHERE id = ?", id).Scan(&chat.Id, &chat.Name); err != nil {
-		return nil, tr.Trace(err)
+		if errorsutils.Is(err, sql.ErrNoRows) {
+			return nil, errors.New(err, "chat not found", http.StatusNotFound)
+		}
+		return nil, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 
 	rows, err := c.db.Query(getUsersByChatQuery, id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errorsutils.Is(err, sql.ErrNoRows) {
 			return &chat, nil
 		}
-		return nil, tr.Trace(err)
+		return nil, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 
 	for rows.Next() {
-		var user models.User
+		var user domain.User
 		if err := rows.Scan(&user.Id, &user.Name); err != nil {
-			return nil, tr.Trace(err)
+			return nil, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 		}
 		chat.Users = append(chat.Users, user)
 	}
@@ -76,34 +80,45 @@ func (c *Chats) GetById(id int) (*models.Chat, error) {
 	return &chat, nil
 }
 
-func (c *Chats) AddUser(chatId int, userId int) error {
+func (c *Chats) AddUser(chatId int, userId int) *errors.Error {
 	if _, err := c.db.Exec("INSERT INTO user_2_chat (user_id, chat_id) VALUES (?, ?)", userId, chatId); err != nil {
-		return tr.Trace(err)
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
 }
 
-func (c *Chats) CheckUserInChat(chatId int, userId int) (bool, error) {
+func (c *Chats) CheckUserInChat(chatId int, userId int) (bool, *errors.Error) {
 	var exist int
 	if err := c.db.QueryRow("SELECT COUNT(id) FROM user_2_chat WHERE user_id=? AND chat_id=?", userId, chatId).Scan(&exist); err != nil {
-		return false, tr.Trace(err)
+		return false, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return exist != 0, nil
 }
 
-func (c *Chats) DeleteUser(chatId int, userId int) error {
+func (c *Chats) DeleteUser(chatId int, userId int) *errors.Error {
 	if _, err := c.db.Exec("DELETE FROM user_2_chat WHERE  user_id = ? AND chat_id = ?", userId, chatId); err != nil {
-		return tr.Trace(err)
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
 }
 
-func (c *Chats) Delete(id int) error {
+func (c *Chats) Delete(id int) *errors.Error {
+	tx, err := c.db.Begin()
+	if err != nil {
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
+	}
+
 	if _, err := c.db.Exec("DELETE FROM chats WHERE id = ?", id); err != nil {
-		return tr.Trace(err)
+		tx.Rollback()
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	if _, err := c.db.Exec("DELETE FROM user_2_chat WHERE chat_id = ?", id); err != nil {
-		return tr.Trace(err)
+		tx.Rollback()
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
 }

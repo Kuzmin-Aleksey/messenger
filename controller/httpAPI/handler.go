@@ -24,14 +24,29 @@ type Handler struct {
 	eventHandler *EventHandler
 }
 
-func NewHandler() *Handler {
+func NewHandler(
+	auth *service.AuthService,
+	users *service.UsersService,
+	messages *service.MessagesService,
+	chats *service.ChatService,
+
+	errors Logger,
+	info Logger,
+) *Handler {
 	return &Handler{
+		auth:         auth,
+		users:        users,
+		messages:     messages,
+		chats:        chats,
+		errors:       errors,
+		info:         info,
 		router:       http.NewServeMux(),
 		eventHandler: NewEventHandler(),
 	}
 }
 
 func (h *Handler) InitRouter() {
+	h.router.Handle("/register", h)
 
 }
 

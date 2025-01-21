@@ -2,8 +2,9 @@ package service
 
 import (
 	"messanger/core/ports"
-	"messanger/models"
-	tr "messanger/pkg/error_trace"
+	"messanger/domain"
+	"messanger/pkg/errors"
+	"net/http"
 )
 
 type UsersService struct {
@@ -14,31 +15,43 @@ func NewUsersService(repo ports.UsersRepo) *UsersService {
 	return &UsersService{repo: repo}
 }
 
-func (s *UsersService) CreateUser(user *models.User) error {
+func (s *UsersService) CreateUser(user *domain.UserInfo) *errors.Error {
+	if len(user.Name) == 0 || len(user.Email) == 0 || len(user.Password) == 0 {
+		return errors.New1Msg("invalid user info", http.StatusBadRequest)
+	}
 	if err := s.repo.New(user); err != nil {
-		return err
+		return err.Trace()
 	}
 	return nil
 }
 
-func (s *UsersService) UpdateUser(user *models.User) error {
+func (s *UsersService) UpdateUser(user *domain.UserInfo) *errors.Error {
+	if user.Id == 0 {
+		return errors.New1Msg("user id is required", http.StatusBadRequest)
+	}
 	if err := s.repo.Update(user); err != nil {
-		return tr.Trace(err)
+		return err.Trace()
 	}
 	return nil
 }
 
-func (s *UsersService) GetUser(id int) (*models.User, error) {
+func (s *UsersService) GetUser(id int) (*domain.User, *errors.Error) {
+	if id == 0 {
+		return nil, errors.New1Msg("user id is required", http.StatusBadRequest)
+	}
 	user, err := s.repo.GetById(id)
 	if err != nil {
-		return nil, tr.Trace(err)
+		return nil, err.Trace()
 	}
 	return user, nil
 }
 
-func (s *UsersService) DeleteUser(id int) error {
+func (s *UsersService) DeleteUser(id int) *errors.Error {
+	if id == 0 {
+		return errors.New1Msg("user id is required", http.StatusBadRequest)
+	}
 	if err := s.repo.Delete(id); err != nil {
-		return tr.Trace(err)
+		return err.Trace()
 	}
 	return nil
 }

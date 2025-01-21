@@ -1,6 +1,9 @@
 package cache
 
-import "time"
+import (
+	"messanger/pkg/errors"
+	"time"
+)
 
 type Cache struct {
 	c   map[string]value
@@ -36,7 +39,7 @@ func (c *Cache) SetTTL(ttl time.Duration) {
 	c.ttl = ttl
 }
 
-func (c *Cache) Set(key string, v int) error {
+func (c *Cache) Set(key string, v int) *errors.Error {
 	c.c[key] = value{
 		v: v,
 		t: time.Now().Add(c.ttl),
@@ -44,7 +47,7 @@ func (c *Cache) Set(key string, v int) error {
 	return nil
 }
 
-func (c *Cache) Get(key string) (int, error) {
+func (c *Cache) Get(key string) (int, *errors.Error) {
 	v, ok := c.c[key]
 	if ok {
 		if time.Now().Before(v.t) {
@@ -57,7 +60,7 @@ func (c *Cache) Get(key string) (int, error) {
 	return 0, nil
 }
 
-func (c *Cache) Del(key string) error {
+func (c *Cache) Del(key string) *errors.Error {
 	delete(c.c, key)
 	return nil
 }

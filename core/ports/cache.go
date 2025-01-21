@@ -1,10 +1,13 @@
 package ports
 
-import "time"
+import (
+	"messanger/pkg/errors"
+	"time"
+)
 
 type TokenCache interface {
 	SetTTL(ttl time.Duration)
-	Set(key string, v int) error
-	Get(key string) (int, error)
-	Del(key string) error
+	Set(key string, v int) *errors.Error
+	Get(key string) (int, *errors.Error)
+	Del(key string) *errors.Error
 }

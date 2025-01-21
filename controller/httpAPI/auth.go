@@ -1,15 +1,14 @@
 package httpAPI
 
 import (
-	"encoding/json"
-	tr "messanger/pkg/error_trace"
+	"messanger/domain"
+	"messanger/pkg/errors"
 	"net/http"
 )
 
-func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		h.errors.Println(tr.Trace(err))
-		w.WriteHeader(http.StatusBadRequest)
+		h.writeJSONError(w, errors.New(err, domain.ErrParseForm, http.StatusBadRequest))
 		return
 	}
 
@@ -17,45 +16,37 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 	password := r.Form.Get("password")
 
 	if email == "" || password == "" {
-		w.WriteHeader(http.StatusBadRequest)
+		h.writeJSONError(w, errors.New(email+":"+password, "missing form values (email,password)", http.StatusBadRequest))
 		return
 	}
 
 	tokens, err := h.auth.Login(email, password)
 	if err != nil {
-		h.errors.Println(tr.Trace(err))
-		w.WriteHeader(http.StatusBadRequest)
+		h.writeJSONError(w, err)
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(tokens); err != nil {
-		h.errors.Println(tr.Trace(err))
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	h.writeJSON(w, http.StatusOK, tokens)
 	h.info.Printf("User %s logged in", email)
 }
 
-func (h *Handler) AuthUpdateTokens(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateTokens(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		h.errors.Println(tr.Trace(err))
-		w.WriteHeader(http.StatusBadRequest)
+		h.writeJSONError(w, errors.New(err, domain.ErrParseForm, http.StatusBadRequest))
 		return
 	}
 
 	refreshToken := r.Form.Get("refresh_token")
 	if refreshToken == "" {
-		w.WriteHeader(http.StatusBadRequest)
+		h.writeJSONError(w, errors.New(refreshToken, "missing refresh token", http.StatusBadRequest))
+		return
 	}
 
 	tokens, err := h.auth.UpdateTokens(refreshToken)
 	if err != nil {
-		h.errors.Println(tr.Trace(err))
-		w.WriteHeader(http.StatusUnauthorized)
+		h.writeJSONError(w, err)
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(tokens); err != nil {
-		h.errors.Println(tr.Trace(err))
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	h.writeJSON(w, http.StatusOK, tokens)
 }
