@@ -27,9 +27,6 @@ func TestAuthService_AccessToken(t *testing.T) {
 	token, _, err := s.newAccessToken(testId)
 	require.NoError(t, err, "create access token")
 
-	t.Log(token)
-	t.Log(len(token))
-
 	id, err := s.CheckAccessToken(token)
 	require.NoError(t, err, "check access token")
 	require.Equal(t, testId, id)

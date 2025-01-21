@@ -14,17 +14,20 @@ type Handler struct {
 	router *http.ServeMux
 
 	auth     *service.AuthService
-	users    *service.Users
-	messages *service.Messages
+	users    *service.UsersService
+	messages *service.MessagesService
 	chats    *service.ChatService
 
 	errors Logger
 	info   Logger
+
+	eventHandler *EventHandler
 }
 
 func NewHandler() *Handler {
 	return &Handler{
-		router: http.NewServeMux(),
+		router:       http.NewServeMux(),
+		eventHandler: NewEventHandler(),
 	}
 }
 

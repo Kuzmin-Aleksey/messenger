@@ -31,9 +31,16 @@ func (m *Messages) New(message *models.Message) error {
 	return nil
 }
 
-func (m *Messages) GetByChat(chatId int, offset int, count int) ([]models.Message, error) {
+const getMessagesByChatQuery = `
+SELECT * FROM messages
+WHERE chat_id = ? AND id < ?
+ORDER BY time DESC
+LIMIT ?;
+`
+
+func (m *Messages) GetByChat(chatId int, lastId int, count int) ([]models.Message, error) {
 	var messages []models.Message
-	rows, err := m.db.Query("SELECT * FROM messages WHERE chat_id = ? ORDER BY time LIMIT ?, ?", chatId, offset, count)
+	rows, err := m.db.Query(getMessagesByChatQuery, chatId, lastId, count)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return messages, nil
@@ -49,8 +56,31 @@ func (m *Messages) GetByChat(chatId int, offset int, count int) ([]models.Messag
 	return messages, nil
 }
 
+func (m *Messages) GetById(id int) (*models.Message, error) {
+	var message models.Message
+	if err := m.db.QueryRow("SELECT * FROM messages WHERE id = ?", id).Scan(
+		&message.Id, &message.ChatId, &message.UserId, &message.Text, &message.Time); err != nil {
+		return nil, tr.Trace(err)
+	}
+	return &message, nil
+}
+
+func (m *Messages) Update(id int, text string) error {
+	if _, err := m.db.Exec("UPDATE messages SET value=? WHERE id = ?", text, id); err != nil {
+		return tr.Trace(err)
+	}
+	return nil
+}
+
 func (m *Messages) Delete(id int) error {
 	if _, err := m.db.Exec("DELETE FROM messages WHERE id = ?", id); err != nil {
+		return tr.Trace(err)
+	}
+	return nil
+}
+
+func (m *Messages) DeleteByChat(chatId int) error {
+	if _, err := m.db.Exec("DELETE FROM messages WHERE chat_id = ?", chatId); err != nil {
 		return tr.Trace(err)
 	}
 	return nil

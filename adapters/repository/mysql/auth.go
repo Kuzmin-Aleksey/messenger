@@ -15,9 +15,16 @@ func NewAuthUsers(db *sql.DB) *AuthUsers {
 }
 
 func (u *AuthUsers) New(user *models.AuthUser) error {
-	if _, err := u.db.Exec("INSERT INTO auth_users (email, password) VALUE (?, ?)"); err != nil {
+	res, err := u.db.Exec("INSERT INTO auth_users (email, password) VALUE (?, ?)")
+	if err != nil {
 		return tr.Trace(err)
 	}
+
+	userId, err := res.LastInsertId()
+	if err != nil {
+		return tr.Trace(err)
+	}
+	user.Id = int(userId)
 	return nil
 }
 

@@ -16,7 +16,20 @@ func NewUsers(db *sql.DB) *Users {
 }
 
 func (u *Users) New(user *models.User) error {
-	if _, err := u.db.Exec("INSERT INTO users (name) VALUES (?)", user.Name); err != nil {
+	res, err := u.db.Exec("INSERT INTO users (name) VALUES (?)", user.Name)
+	if err != nil {
+		return tr.Trace(err)
+	}
+	userId, err := res.LastInsertId()
+	if err != nil {
+		return tr.Trace(err)
+	}
+	user.Id = int(userId)
+	return nil
+}
+
+func (u *Users) Update(user *models.User) error {
+	if _, err := u.db.Exec("UPDATE users SET name = ? WHERE id = ?", user.Name, user.Id); err != nil {
 		return tr.Trace(err)
 	}
 	return nil
@@ -54,13 +67,6 @@ func (u *Users) GetById(id int) (*models.User, error) {
 	}
 
 	return &user, nil
-}
-
-func (u *Users) AddChat(userId int, chatId int) error {
-	if _, err := u.db.Exec("INSERT INTO user_2_chat (user_id, chat_id) VALUES (?, ?)", userId, chatId); err != nil {
-		return tr.Trace(err)
-	}
-	return nil
 }
 
 func (u *Users) Delete(id int) error {

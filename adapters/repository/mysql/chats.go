@@ -35,6 +35,13 @@ func (c *Chats) New(chat *models.Chat) error {
 	return nil
 }
 
+func (c *Chats) Update(chat *models.Chat) error {
+	if _, err := c.db.Exec("UPDATE chats SET name = ? WHERE id = ?", chat.Name, chat.Id); err != nil {
+		return tr.Trace(err)
+	}
+	return nil
+}
+
 const getUsersByChatQuery = `
 SELECT 
 	users.id,
@@ -71,6 +78,21 @@ func (c *Chats) GetById(id int) (*models.Chat, error) {
 
 func (c *Chats) AddUser(chatId int, userId int) error {
 	if _, err := c.db.Exec("INSERT INTO user_2_chat (user_id, chat_id) VALUES (?, ?)", userId, chatId); err != nil {
+		return tr.Trace(err)
+	}
+	return nil
+}
+
+func (c *Chats) CheckUserInChat(chatId int, userId int) (bool, error) {
+	var exist int
+	if err := c.db.QueryRow("SELECT COUNT(id) FROM user_2_chat WHERE user_id=? AND chat_id=?", userId, chatId).Scan(&exist); err != nil {
+		return false, tr.Trace(err)
+	}
+	return exist != 0, nil
+}
+
+func (c *Chats) DeleteUser(chatId int, userId int) error {
+	if _, err := c.db.Exec("DELETE FROM user_2_chat WHERE  user_id = ? AND chat_id = ?", userId, chatId); err != nil {
 		return tr.Trace(err)
 	}
 	return nil

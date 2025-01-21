@@ -32,6 +32,14 @@ func NewAuthService(cache ports.TokenCache, repo ports.AuthUsers, cfg *config.Au
 }
 
 func (s *AuthService) CreateUser(user *models.AuthUser) error {
+	exist, err := s.repo.IsExist(user.Email)
+	if err != nil {
+		return tr.Trace(err)
+	}
+	if exist {
+		return errors.New("user with this email already exists")
+	}
+
 	user.Password = s.hashPassword(user.Password)
 	if err := s.repo.New(user); err != nil {
 		return tr.Trace(err)
