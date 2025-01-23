@@ -21,11 +21,6 @@ type Event struct {
 	Data any
 }
 
-type Channel struct {
-	Channel       chan *Event
-	CountOfListen int
-}
-
 type EventHandler struct {
 	connects   map[int]map[int]*websocket.Conn
 	wsUpgrader *websocket.Upgrader

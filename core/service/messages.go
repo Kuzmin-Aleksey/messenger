@@ -81,14 +81,6 @@ func (s *MessagesService) DeleteMessage(ctx context.Context, id int) (*domain.Me
 	return m, nil
 }
 
-func (s *MessagesService) GetById(id int) (*domain.Message, *errors.Error) {
-	message, err := s.repo.GetById(id)
-	if err != nil {
-		return nil, err.Trace()
-	}
-	return message, nil
-}
-
 func (s *MessagesService) GetFromChat(ctx context.Context, chatId int, lastId int, count int) ([]domain.Message, *errors.Error) {
 	if count <= 0 {
 		return nil, errors.New1Msg("field count is missing", http.StatusBadRequest)

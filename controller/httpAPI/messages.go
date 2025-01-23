@@ -36,19 +36,19 @@ func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
-	var id id
-	if err := json.NewDecoder(r.Body).Decode(&id); err != nil {
+	messageId := new(id)
+	if err := json.NewDecoder(r.Body).Decode(messageId); err != nil {
 		h.writeJSONError(w, errors.New(err, domain.ErrParseJson, http.StatusBadRequest))
 		return
 	}
 
-	m, err := h.messages.DeleteMessage(r.Context(), id.Id)
+	m, err := h.messages.DeleteMessage(r.Context(), messageId.Id)
 	if err != nil {
 		h.writeJSONError(w, err)
 		return
 	}
 
-	h.eventHandler.OnDeleteMessage(id.Id, m.ChatId)
+	h.eventHandler.OnDeleteMessage(messageId.Id, m.ChatId)
 }
 
 type getMessagesInput struct {
@@ -74,5 +74,17 @@ func (h *Handler) GetMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetMinMassageIdInChat(w http.ResponseWriter, r *http.Request) {
+	chatId := new(id)
+	if err := json.NewDecoder(r.Body).Decode(&chatId); err != nil {
+		h.writeJSONError(w, errors.New(err, domain.ErrParseJson, http.StatusBadRequest))
+		return
+	}
 
+	messageId, err := h.messages.GetMinMassageIdInChat(chatId.Id)
+	if err != nil {
+		h.writeJSONError(w, err.Trace())
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, newId(messageId))
 }

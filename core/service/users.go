@@ -47,6 +47,18 @@ func (s *UsersService) GetUserInfo(ctx context.Context) (*domain.User, *errors.E
 	return user, nil
 }
 
+func (s *UsersService) DeleteUser(ctx context.Context) *errors.Error {
+	id := getUserId(ctx)
+	if err := s.repo.Delete(id); err != nil {
+		return err.Trace()
+	}
+	select {
+	case s.OnDeleteUser <- id:
+	default:
+	}
+	return nil
+}
+
 func (s *UsersService) GetUsersByChat(ctx context.Context, chatId int) ([]domain.User, *errors.Error) {
 	actionerId := getUserId(ctx)
 	ok, err := s.repo.CheckUserInChat(actionerId, chatId)
@@ -62,18 +74,6 @@ func (s *UsersService) GetUsersByChat(ctx context.Context, chatId int) ([]domain
 		return nil, err.Trace()
 	}
 	return users, nil
-}
-
-func (s *UsersService) DeleteUser(ctx context.Context) *errors.Error {
-	id := getUserId(ctx)
-	if err := s.repo.Delete(id); err != nil {
-		return err.Trace()
-	}
-	select {
-	case s.OnDeleteUser <- id:
-	default:
-	}
-	return nil
 }
 
 func (s *UsersService) AddUserToChat(ctx context.Context, userId int, chatId int, role string) *errors.Error {

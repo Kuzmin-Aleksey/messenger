@@ -57,13 +57,13 @@ func (h *Handler) AddUserToChat(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) GetUserByChat(w http.ResponseWriter, r *http.Request) {
-	var idd id
-	if err := json.NewDecoder(r.Body).Decode(&id); err != nil {
+func (h *Handler) GetUsersByChat(w http.ResponseWriter, r *http.Request) {
+	chatId := new(id)
+	if err := json.NewDecoder(r.Body).Decode(chatId); err != nil {
 		h.writeJSONError(w, errors.New(err, domain.ErrParseJson, http.StatusBadRequest))
 	}
 
-	user, err := h.users.GetUsersByChat(r.Context(), id.Id)
+	user, err := h.users.GetUsersByChat(r.Context(), chatId.Id)
 	if err != nil {
 		h.writeJSONError(w, err)
 	}

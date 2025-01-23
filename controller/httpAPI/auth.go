@@ -27,7 +27,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.writeJSON(w, http.StatusOK, tokens)
-	h.info.Printf("User %s logged in", email)
 }
 
 func (h *Handler) UpdateTokens(w http.ResponseWriter, r *http.Request) {
