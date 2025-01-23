@@ -29,3 +29,11 @@ func (h *Handler) writeJSONError(w http.ResponseWriter, err *errors.Error) {
 		h.errors.Println(errors.Trace(err))
 	}
 }
+
+type id struct {
+	Id int `json:"id"`
+}
+
+func newId(Id int) id {
+	return id{Id}
+}

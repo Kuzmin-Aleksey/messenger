@@ -7,15 +7,9 @@ type CreateUserInput struct {
 }
 
 type User struct {
-	Id    int    `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email,omitempty"`
-	Chats []Chat `json:"chats,omitempty"`
-}
-
-type UserInfo struct {
 	Id       int    `json:"id"`
 	Name     string `json:"name"`
 	Email    string `json:"email,omitempty"`
-	Password string `json:"password,omitempty"`
+	Role     string `json:"role,omitempty"`
+	Password string `json:"password,omitempty"` // to update
 }

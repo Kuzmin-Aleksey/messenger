@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"log"
 	"messanger/config"
 	"messanger/core/ports"
 	"messanger/domain"
@@ -30,16 +29,9 @@ func NewAuthService(cache ports.TokenCache, repo ports.UsersRepo, cfg *config.Au
 }
 
 func (s *AuthService) Login(email, password string) (*domain.Tokens, *errors.Error) {
-	user, err := s.repo.GetInfoByEmail(email)
+	user, err := s.repo.GetByEmailWithPass(email, password)
 	if err != nil {
 		return nil, err.Trace()
-	}
-	if user == nil {
-		return nil, errors.New(domain.ErrUserAlreadyExists, domain.ErrUserAlreadyExists, http.StatusNotFound)
-	}
-
-	if user.Password != s.hashPassword(password) {
-		return nil, errors.New1Msg("invalid password", http.StatusUnauthorized)
 	}
 
 	access, accessExpires, err := s.newAccessToken(user.Id)
@@ -123,10 +115,6 @@ func (s *AuthService) CheckAccessToken(access string) (int, *errors.Error) {
 	if !ok {
 		return 0, errors.New("expires time is not in map claims", ErrInvalidToken, http.StatusUnauthorized)
 	}
-
-	log.Println(
-		time.Unix(int64(tUnix.(float64)), 0),
-	)
 
 	if time.Now().After(time.Unix(int64(tUnix.(float64)), 0)) {
 		return 0, errors.New1Msg("token expired", http.StatusUnauthorized)

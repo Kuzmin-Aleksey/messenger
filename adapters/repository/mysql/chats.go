@@ -16,8 +16,14 @@ func NewChats(db *sql.DB) *Chats {
 	return &Chats{db}
 }
 
-func (c *Chats) New(chat *domain.Chat) *errors.Error {
-	res, err := c.db.Exec("INSERT INTO chats (name) VALUES (?)", chat.Name)
+func (c *Chats) New(chat *domain.Chat, creator int) (e *errors.Error) {
+	tx, err := c.db.Begin()
+	if err != nil {
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
+	}
+	defer Commit(tx, &e)
+
+	res, err := tx.Exec("INSERT INTO chats (name) VALUES (?)", chat.Name)
 	if err != nil {
 		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
@@ -27,97 +33,91 @@ func (c *Chats) New(chat *domain.Chat) *errors.Error {
 	}
 	chat.Id = int(chatId)
 
-	for _, user := range chat.Users {
-		if _, err := c.db.Exec("INSERT INTO user_2_chat (user_id, chat_id) VALUES (?, ?)", user.Id, chat.Id); err != nil {
-			return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
-		}
+	if _, err := tx.Exec("INSERT INTO user_2_chat (user_id, chat_id, role_id) VALUES (?, ?, 2)", chat.Id, creator); err != nil {
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 
 	return nil
 }
 
 func (c *Chats) Update(chat *domain.Chat) *errors.Error {
+	if len(chat.Name) == 0 {
+		return nil
+	}
 	if _, err := c.db.Exec("UPDATE chats SET name = ? WHERE id = ?", chat.Name, chat.Id); err != nil {
 		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
 }
 
-const getUsersByChatQuery = `
-SELECT 
-	users.id,
-	users.name
+const getChatsByUserQuery = `
+SELECT
+	chats.id,
+	chats.name,
+	IFNULL(roles.role, 
+	(SELECT r.role FROM roles r WHERE r.id=1)) AS role
 FROM user_2_chat
-inner join users ON users.id = user_2_chat.user_id
-WHERE user_2_chat.chat_id = ?`
+INNER JOIN chats ON chats.id = user_2_chat.chat_id
+LEFT JOIN roles ON roles.id = user_2_chat.role_id
+WHERE user_2_chat.user_id = ?
+`
+
+func (c *Chats) GetChatsByUser(userId int) ([]domain.Chat, *errors.Error) {
+	rows, err := c.db.Query(getChatsByUserQuery, userId)
+	if err != nil {
+		if errorsutils.Is(err, sql.ErrNoRows) {
+			return []domain.Chat{}, nil
+		}
+		return nil, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
+	}
+
+	var chats []domain.Chat
+	for rows.Next() {
+		var chat domain.Chat
+		if err := rows.Scan(&chat.Id, &chat.Name); err != nil {
+			return nil, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
+		}
+		chats = append(chats, chat)
+	}
+	return chats, nil
+}
 
 func (c *Chats) GetById(id int) (*domain.Chat, *errors.Error) {
 	var chat domain.Chat
-
 	if err := c.db.QueryRow("SELECT * FROM chats WHERE id = ?", id).Scan(&chat.Id, &chat.Name); err != nil {
 		if errorsutils.Is(err, sql.ErrNoRows) {
 			return nil, errors.New(err, "chat not found", http.StatusNotFound)
 		}
 		return nil, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
-
-	rows, err := c.db.Query(getUsersByChatQuery, id)
-	if err != nil {
-		if errorsutils.Is(err, sql.ErrNoRows) {
-			return &chat, nil
-		}
-		return nil, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
-	}
-
-	for rows.Next() {
-		var user domain.User
-		if err := rows.Scan(&user.Id, &user.Name); err != nil {
-			return nil, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
-		}
-		chat.Users = append(chat.Users, user)
-	}
-
 	return &chat, nil
 }
 
-func (c *Chats) AddUser(chatId int, userId int) *errors.Error {
-	if _, err := c.db.Exec("INSERT INTO user_2_chat (user_id, chat_id) VALUES (?, ?)", userId, chatId); err != nil {
-		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
+const getUserRoleQuery = `
+SELECT roles.role
+FROM user_2_chat
+INNER JOIN roles ON user_2_chat.role_id = roles.id
+WHERE user_2_chat.user_id=? AND user_2_chat.chat_id=?`
+
+func (c *Chats) GetUserRole(userId int, chatId int) (string, *errors.Error) {
+	var role string
+	if err := c.db.QueryRow(getUserRoleQuery, userId, chatId).Scan(&role); err != nil {
+		return "", errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
-	return nil
+	return role, nil
 }
 
-func (c *Chats) CheckUserInChat(chatId int, userId int) (bool, *errors.Error) {
-	var exist int
-	if err := c.db.QueryRow("SELECT COUNT(id) FROM user_2_chat WHERE user_id=? AND chat_id=?", userId, chatId).Scan(&exist); err != nil {
-		return false, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
-	}
-	return exist != 0, nil
-}
-
-func (c *Chats) DeleteUser(chatId int, userId int) *errors.Error {
-	if _, err := c.db.Exec("DELETE FROM user_2_chat WHERE  user_id = ? AND chat_id = ?", userId, chatId); err != nil {
-		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
-	}
-	return nil
-}
-
-func (c *Chats) Delete(id int) *errors.Error {
+func (c *Chats) Delete(id int) (e *errors.Error) {
 	tx, err := c.db.Begin()
 	if err != nil {
 		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
+	defer Commit(tx, &e)
 
 	if _, err := c.db.Exec("DELETE FROM chats WHERE id = ?", id); err != nil {
-		tx.Rollback()
 		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	if _, err := c.db.Exec("DELETE FROM user_2_chat WHERE chat_id = ?", id); err != nil {
-		tx.Rollback()
-		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
-	}
-
-	if err := tx.Commit(); err != nil {
 		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil

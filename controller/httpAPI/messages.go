@@ -2,11 +2,9 @@ package httpAPI
 
 import (
 	"encoding/json"
-	"fmt"
 	"messanger/domain"
 	"messanger/pkg/errors"
 	"net/http"
-	"strconv"
 )
 
 func (h *Handler) CreateMessage(w http.ResponseWriter, r *http.Request) {
@@ -15,25 +13,10 @@ func (h *Handler) CreateMessage(w http.ResponseWriter, r *http.Request) {
 		h.writeJSONError(w, errors.New(err, domain.ErrParseJson, http.StatusBadRequest))
 		return
 	}
-
-	userId := r.Context().Value("UserId").(int)
-	exist, err := h.chats.CheckUserInChat(userId, m.ChatId)
-	if err != nil {
+	if err := h.messages.CreateMessage(r.Context(), m); err != nil {
 		h.writeJSONError(w, err.Trace())
 		return
 	}
-
-	if !exist {
-		h.writeJSONError(w, errors.New(fmt.Sprintf("user (%d) tried to create a message in the chat (%d)", userId, m.ChatId),
-			"forbidden", http.StatusForbidden))
-		return
-	}
-
-	if err := h.messages.CreateMessage(m); err != nil {
-		h.writeJSONError(w, err.Trace())
-		return
-	}
-
 	h.eventHandler.OnCreateMessage(m)
 }
 
@@ -44,19 +27,7 @@ func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userId := r.Context().Value("UserId").(int)
-	exist, err := h.chats.CheckUserInChat(userId, m.ChatId)
-	if err != nil {
-		h.writeJSONError(w, err.Trace())
-		return
-	}
-	if !exist {
-		h.writeJSONError(w, errors.New(fmt.Sprintf("user (%d) tried to delete a message in the chat (%d)", userId, m.ChatId),
-			"forbidden", http.StatusForbidden))
-		return
-	}
-
-	if err := h.messages.UpdateMessage(m); err != nil {
+	if err := h.messages.UpdateMessage(r.Context(), m); err != nil {
 		h.writeJSONError(w, err.Trace())
 		return
 	}
@@ -65,39 +36,19 @@ func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
-	if e := r.ParseForm(); e != nil {
-		h.writeJSONError(w, errors.New(e, domain.ErrParseForm, http.StatusBadRequest))
+	var id id
+	if err := json.NewDecoder(r.Body).Decode(&id); err != nil {
+		h.writeJSONError(w, errors.New(err, domain.ErrParseJson, http.StatusBadRequest))
 		return
 	}
-	messageId, e := strconv.Atoi(r.Form.Get("message_id"))
-	if e != nil {
-		h.writeJSONError(w, errors.New(e, "invalid message_id", http.StatusBadRequest))
-		return
-	}
-	m, err := h.messages.GetById(messageId)
+
+	m, err := h.messages.DeleteMessage(r.Context(), id.Id)
 	if err != nil {
-		h.writeJSONError(w, err.Trace())
+		h.writeJSONError(w, err)
 		return
 	}
 
-	userId := r.Context().Value("UserId").(int)
-	exist, err := h.chats.CheckUserInChat(userId, m.ChatId)
-	if err != nil {
-		h.writeJSONError(w, err.Trace())
-		return
-	}
-	if !exist {
-		h.writeJSONError(w, errors.New(fmt.Sprintf("user (%d) tried to delete a message in the chat (%d)", userId, m.ChatId),
-			"forbidden", http.StatusForbidden))
-		return
-	}
-
-	if err := h.messages.DeleteMessage(messageId); err != nil {
-		h.writeJSONError(w, err.Trace())
-		return
-	}
-
-	h.eventHandler.OnDeleteMessage(messageId, m.ChatId)
+	h.eventHandler.OnDeleteMessage(id.Id, m.ChatId)
 }
 
 type getMessagesInput struct {
@@ -113,23 +64,15 @@ func (h *Handler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userId := r.Context().Value("UserId").(int)
-	exist, err := h.chats.CheckUserInChat(userId, in.ChatId)
-	if err != nil {
-		h.writeJSONError(w, err.Trace())
-		return
-	}
-	if !exist {
-		h.writeJSONError(w, errors.New(fmt.Sprintf("user (%d) tried to delete a message in the chat (%d)", userId, in.ChatId),
-			"forbidden", http.StatusForbidden))
-		return
-	}
-
-	messages, err := h.messages.GetFromChat(in.ChatId, in.LastId, in.Limit)
+	messages, err := h.messages.GetFromChat(r.Context(), in.ChatId, in.LastId, in.Limit)
 	if err != nil {
 		h.writeJSONError(w, err.Trace())
 		return
 	}
 
 	h.writeJSON(w, http.StatusOK, messages)
+}
+
+func (h *Handler) GetMinMassageIdInChat(w http.ResponseWriter, r *http.Request) {
+
 }

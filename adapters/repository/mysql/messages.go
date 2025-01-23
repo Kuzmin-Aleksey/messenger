@@ -31,16 +31,20 @@ func (m *Messages) New(message *domain.Message) *errors.Error {
 	return nil
 }
 
-const getMessagesByChatQuery = `
-SELECT * FROM messages
-WHERE chat_id = ? AND id < ?
-ORDER BY time DESC
-LIMIT ?;
-`
-
 func (m *Messages) GetByChat(chatId int, lastId int, count int) ([]domain.Message, *errors.Error) {
 	var messages []domain.Message
-	rows, err := m.db.Query(getMessagesByChatQuery, chatId, lastId, count)
+
+	var query string
+	var args []any
+	if lastId > 0 {
+		query = "SELECT * FROM messages WHERE chat_id = ? AND id < ? ORDER BY time DESC LIMIT ?"
+		args = []any{chatId, lastId, count}
+	} else {
+		query = `SELECT * FROM messages WHERE chat_id = ? ORDER BY time DESC LIMIT ?`
+		args = []any{chatId, count}
+	}
+
+	rows, err := m.db.Query(query, args...)
 	if err != nil {
 		if errorsutils.Is(err, sql.ErrNoRows) {
 			return messages, nil
@@ -55,6 +59,14 @@ func (m *Messages) GetByChat(chatId int, lastId int, count int) ([]domain.Messag
 		}
 	}
 	return messages, nil
+}
+
+func (m *Messages) GetMinMassageIdInChat(chatId int) (int, *errors.Error) {
+	var id int
+	if err := m.db.QueryRow("SELECT IFNULL(MIN(id), -1) FROM messages WHERE chat_id = ?", chatId).Scan(&id); err != nil {
+		return id, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
+	}
+	return id, nil
 }
 
 func (m *Messages) GetById(id int) (*domain.Message, *errors.Error) {

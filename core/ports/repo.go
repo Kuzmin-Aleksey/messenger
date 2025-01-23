@@ -6,30 +6,33 @@ import (
 )
 
 type UsersRepo interface {
-	New(user *domain.UserInfo) *errors.Error
-	Update(user *domain.UserInfo) *errors.Error
+	New(user *domain.User) *errors.Error
+	AddUserToChat(userId int, chatId int, role string) *errors.Error
+	CheckUserInChat(userId int, chatId int) (bool, *errors.Error)
+	DeleteUserFromChat(chatId int, userId int) *errors.Error
+	GetRole(userId int, chatId int) (string, *errors.Error)
+	GetUsersByChat(chatId int) ([]domain.User, *errors.Error)
+	Update(user *domain.User) *errors.Error
 	GetById(id int) (*domain.User, *errors.Error)
-	GetInfoByEmail(email string) (*domain.UserInfo, *errors.Error)
-	GetWithPass(email, password string) (*domain.UserInfo, *errors.Error)
-	//IsExist(email string) (bool, *errors.Error)
+	GetByEmail(email string) (*domain.User, *errors.Error)
+	GetByEmailWithPass(email, password string) (*domain.User, *errors.Error)
 	Delete(id int) *errors.Error
 }
 
 type ChatsRepo interface {
-	New(chat *domain.Chat) *errors.Error
+	New(chat *domain.Chat, creator int) *errors.Error
 	Update(chat *domain.Chat) *errors.Error
+	GetChatsByUser(userId int) ([]domain.Chat, *errors.Error)
 	GetById(id int) (*domain.Chat, *errors.Error)
-	AddUser(chatId int, userId int) *errors.Error
-	CheckUserInChat(chatId int, userId int) (bool, *errors.Error)
-	DeleteUser(chatId int, userId int) *errors.Error
+	GetUserRole(userId int, chatId int) (string, *errors.Error)
 	Delete(id int) *errors.Error
 }
 
 type MessagesRepo interface {
 	New(message *domain.Message) *errors.Error
 	GetByChat(chatId int, lastId int, count int) ([]domain.Message, *errors.Error)
+	GetMinMassageIdInChat(chatId int) (int, *errors.Error)
 	GetById(id int) (*domain.Message, *errors.Error)
 	Update(id int, text string) *errors.Error
 	Delete(id int) *errors.Error
-	DeleteByChat(chatId int) *errors.Error
 }

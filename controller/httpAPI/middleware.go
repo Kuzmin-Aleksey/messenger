@@ -25,7 +25,7 @@ func (h *Handler) MwWithAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		*r = *r.WithContext(context.WithValue(r.Context(), "UserId", userId))
+		r = r.WithContext(context.WithValue(r.Context(), "UserId", userId))
 
 		next(w, r)
 	}
