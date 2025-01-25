@@ -51,7 +51,7 @@ func (s *UsersService) OnConfirm(userId int) *errors.Error {
 	return nil
 }
 
-func (s *UsersService) UpdateUser(ctx context.Context, user *domain.User, lasPass string) *errors.Error {
+func (s *UsersService) UpdateUser(ctx context.Context, user *domain.User, lastPass string) *errors.Error {
 	user.Id = getUserId(ctx)
 	if len(user.Email) != 0 {
 		if err := s.repo.SetConfirm(user.Id, false); err != nil {
@@ -62,10 +62,10 @@ func (s *UsersService) UpdateUser(ctx context.Context, user *domain.User, lasPas
 		}
 	}
 	if len(user.Password) != 0 {
-		if len(lasPass) == 0 {
+		if len(lastPass) == 0 {
 			return errors.New1Msg("missing last password", http.StatusBadRequest)
 		}
-		if ok, err := s.repo.CheckPass(user.Id, lasPass); !ok {
+		if ok, err := s.repo.CheckPass(user.Id, lastPass); !ok {
 			if err != nil {
 				return err.Trace()
 			}

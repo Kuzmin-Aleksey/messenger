@@ -90,9 +90,9 @@ func (e *EventHandler) removeConnect(chatId int, userId int) {
 }
 
 func (e *EventHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	if err := r.ParseForm(); err != nil {
 		e.errors.Println(errors.Trace(err))
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(responseError{domain.ErrParseForm})
 		return
@@ -101,7 +101,6 @@ func (e *EventHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 	chatId, err := strconv.Atoi(r.Form.Get("chat_id"))
 	if err != nil {
 		e.errors.Println(errors.Trace(err))
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(responseError{"invalid chat_id parameter"})
 		return

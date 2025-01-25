@@ -73,6 +73,7 @@ func (h *Handler) GetMessages(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, messages)
 }
 
+// GetMinMassageIdInChat to know where end of chat
 func (h *Handler) GetMinMassageIdInChat(w http.ResponseWriter, r *http.Request) {
 	chatId := new(id)
 	if err := json.NewDecoder(r.Body).Decode(&chatId); err != nil {
