@@ -69,7 +69,7 @@ func (s *AuthService) UpdateTokens(refresh string) (*domain.Tokens, *errors.Erro
 		return nil, err.Trace()
 	}
 	if userId == 0 {
-		return nil, errors.New(domain.ErrUnauthorized, domain.ErrUnauthorized, http.StatusUnauthorized)
+		return nil, errors.New1Msg("missing user id", http.StatusUnauthorized)
 	}
 
 	if err := s.cache.Del(refresh); err != nil {
