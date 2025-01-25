@@ -54,27 +54,27 @@ func (h *Handler) InitRouter() {
 	h.router.HandleFunc("/auth/login", h.MwLogging(h.Login)).Methods(http.MethodPost)
 	h.router.HandleFunc("/auth/refresh-tokens", h.MwLogging(h.UpdateTokens)).Methods(http.MethodPost)
 
-	h.router.HandleFunc("/self/update", h.MwWithAuth(h.MwLogging(h.UpdateUserSelf))).Methods(http.MethodPost)
-	h.router.HandleFunc("/self/delete", h.MwWithAuth(h.MwLogging(h.DeleteUserSelf))).Methods(http.MethodPost)
-	h.router.HandleFunc("/self/info", h.MwWithAuth(h.MwLogging(h.GetUserSelfInfo))).Methods(http.MethodGet)
+	h.router.HandleFunc("/self/update", h.MwLogging(h.MwWithAuth(h.UpdateUserSelf))).Methods(http.MethodPost)
+	h.router.HandleFunc("/self/delete", h.MwLogging(h.MwWithAuth(h.DeleteUserSelf))).Methods(http.MethodPost)
+	h.router.HandleFunc("/self/info", h.MwLogging(h.MwWithAuth(h.GetUserSelfInfo))).Methods(http.MethodGet)
 
 	h.router.HandleFunc("/confirm-email", h.MwLogging(h.ConfirmEmail))
 
-	h.router.HandleFunc("/users/get-by-chat", h.MwWithAuth(h.MwLogging(h.GetUsersByChat))).Methods(http.MethodGet)
-	h.router.HandleFunc("/users/add-to-chat", h.MwWithAuth(h.MwLogging(h.AddUserToChat))).Methods(http.MethodPost)
-	h.router.HandleFunc("/users/delete-from-chat", h.MwWithAuth(h.MwLogging(h.DeleteUserFromChat))).Methods(http.MethodPost)
+	h.router.HandleFunc("/users/get-by-chat", h.MwLogging(h.MwWithAuth(h.GetUsersByChat))).Methods(http.MethodGet)
+	h.router.HandleFunc("/users/add-to-chat", h.MwLogging(h.MwWithAuth(h.AddUserToChat))).Methods(http.MethodPost)
+	h.router.HandleFunc("/users/delete-from-chat", h.MwLogging(h.MwWithAuth(h.DeleteUserFromChat))).Methods(http.MethodPost)
 
-	h.router.HandleFunc("/chats/create", h.MwWithAuth(h.MwLogging(h.CreateChat))).Methods(http.MethodPost)
-	h.router.HandleFunc("/chats/update", h.MwWithAuth(h.MwLogging(h.UpdateChat))).Methods(http.MethodPost)
-	h.router.HandleFunc("/chats/delete", h.MwWithAuth(h.MwLogging(h.DeleteChat))).Methods(http.MethodPost)
-	h.router.HandleFunc("/chats/get-my", h.MwWithAuth(h.MwLogging(h.GetUserChats))).Methods(http.MethodGet)
+	h.router.HandleFunc("/chats/create", h.MwLogging(h.MwWithAuth(h.CreateChat))).Methods(http.MethodPost)
+	h.router.HandleFunc("/chats/update", h.MwLogging(h.MwWithAuth(h.UpdateChat))).Methods(http.MethodPost)
+	h.router.HandleFunc("/chats/delete", h.MwLogging(h.MwWithAuth(h.DeleteChat))).Methods(http.MethodPost)
+	h.router.HandleFunc("/chats/get-my", h.MwLogging(h.MwWithAuth(h.GetUserChats))).Methods(http.MethodGet)
 
-	h.router.HandleFunc("/messages/create", h.MwWithAuth(h.MwLogging(h.CreateMessage))).Methods(http.MethodPost)
-	h.router.HandleFunc("/messages/update", h.MwWithAuth(h.MwLogging(h.UpdateMessage))).Methods(http.MethodPost)
-	h.router.HandleFunc("/messages/delete", h.MwWithAuth(h.MwLogging(h.DeleteMessage))).Methods(http.MethodPost)
-	h.router.HandleFunc("/messages/get-by-chat", h.MwWithAuth(h.MwLogging(h.GetMessages))).Methods(http.MethodGet)
-	h.router.HandleFunc("/messages/min-id-in-chat", h.MwWithAuth(h.MwLogging(h.GetMessages))).Methods(http.MethodGet)
-	h.router.HandleFunc("/messages/ws", h.MwWithAuth(h.MwLogging(h.eventHandler.HandleWS)))
+	h.router.HandleFunc("/messages/create", h.MwLogging(h.MwWithAuth(h.CreateMessage))).Methods(http.MethodPost)
+	h.router.HandleFunc("/messages/update", h.MwLogging(h.MwWithAuth(h.UpdateMessage))).Methods(http.MethodPost)
+	h.router.HandleFunc("/messages/delete", h.MwLogging(h.MwWithAuth(h.DeleteMessage))).Methods(http.MethodPost)
+	h.router.HandleFunc("/messages/get-by-chat", h.MwLogging(h.MwWithAuth(h.GetMessages))).Methods(http.MethodGet)
+	h.router.HandleFunc("/messages/min-id-in-chat", h.MwLogging(h.MwWithAuth(h.GetMessages))).Methods(http.MethodGet)
+	h.router.HandleFunc("/messages/ws", h.MwLogging(h.MwWithAuth(h.eventHandler.HandleWS)))
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
