@@ -7,6 +7,7 @@ import (
 	"messanger/domain"
 	"messanger/pkg/errors"
 	"net/http"
+	"strings"
 )
 
 type Users struct {
@@ -28,6 +29,13 @@ func (u *Users) New(user *domain.User) *errors.Error {
 	return nil
 }
 
+func (u *Users) SetConfirm(userId int, v bool) *errors.Error {
+	if _, err := u.db.Exec("UPDATE users SET confirmed = ? WHERE id = ?", v, userId); err != nil {
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
+	}
+	return nil
+}
+
 func (u *Users) AddUserToChat(userId int, chatId int, role string) *errors.Error {
 	var roleId int
 	if err := u.db.QueryRow("SELECT id FROM roles WHERE role=?", role).Scan(&roleId); err != nil {
@@ -41,11 +49,11 @@ func (u *Users) AddUserToChat(userId int, chatId int, role string) *errors.Error
 }
 
 func (u *Users) CheckUserInChat(userId int, chatId int) (bool, *errors.Error) {
-	var exist int
-	if err := u.db.QueryRow("SELECT COUNT(id) FROM user_2_chat WHERE user_id=? AND chat_id=?", userId, chatId).Scan(&exist); err != nil {
+	var exist bool
+	if err := u.db.QueryRow("SELECT COUNT(id) > 0 FROM user_2_chat WHERE user_id=? AND chat_id=?", userId, chatId).Scan(&exist); err != nil {
 		return false, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
-	return exist != 0, nil
+	return exist, nil
 }
 
 func (u *Users) DeleteUserFromChat(chatId int, userId int) *errors.Error {
@@ -90,7 +98,7 @@ func (u *Users) GetUsersByChat(chatId int) ([]domain.User, *errors.Error) {
 
 	for rows.Next() {
 		var user domain.User
-		if err := rows.Scan(&user.Id, &user.Name); err != nil {
+		if err := rows.Scan(&user.Id, &user.Name, &user.Role); err != nil {
 			return nil, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 		}
 		users = append(users, user)
@@ -110,20 +118,21 @@ func (u *Users) Update(user *domain.User) *errors.Error {
 	query := "UPDATE users SET"
 	var values []any
 	if user.Email != "" {
-		query += " email = ?"
+		query += " email = ?,"
 		values = append(values, user.Email)
 	}
 	if user.Name != "" {
-		query += " name = ?"
+		query += " name = ?,"
 		values = append(values, user.Name)
 	}
 	if user.Password != "" {
-		query += " password = ?"
+		query += " password = ?,"
 		values = append(values, hashPassword(user.Password))
 	}
 	if len(values) == 0 {
 		return nil
 	}
+	query = strings.TrimSuffix(query, ",")
 	query += " WHERE id = ?"
 	values = append(values, user.Id)
 
@@ -165,7 +174,7 @@ func (u *Users) GetByEmail(email string) (*domain.User, *errors.Error) {
 
 func (u *Users) GetByEmailWithPass(email, password string) (*domain.User, *errors.Error) {
 	user := new(domain.User)
-	if err := u.db.QueryRow("SELECT id, name, email  FROM users WHERE email = ? AND password = ?", email, hashPassword(password)).Scan(
+	if err := u.db.QueryRow("SELECT id, name, email  FROM users WHERE email = ? AND password = ? AND confirmed", email, hashPassword(password)).Scan(
 		&user.Id,
 		&user.Name,
 		&user.Email); err != nil {
@@ -175,6 +184,14 @@ func (u *Users) GetByEmailWithPass(email, password string) (*domain.User, *error
 		return nil, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return user, nil
+}
+
+func (u *Users) CheckPass(id int, password string) (bool, *errors.Error) {
+	var ok bool
+	if err := u.db.QueryRow("SELECT COUNT(id) > 0  FROM users WHERE id = ? AND password = ?", id, hashPassword(password)).Scan(&ok); err != nil {
+		return false, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
+	}
+	return ok, nil
 }
 
 func (u *Users) Delete(id int) (e *errors.Error) {
@@ -195,8 +212,8 @@ func (u *Users) Delete(id int) (e *errors.Error) {
 
 var passwordSalt = []byte("nwy9837ctp5")
 
-func hashPassword(password string) string {
+func hashPassword(password string) []byte {
 	h := sha256.New()
 	h.Write([]byte(password))
-	return string(h.Sum(passwordSalt))
+	return h.Sum(passwordSalt)
 }

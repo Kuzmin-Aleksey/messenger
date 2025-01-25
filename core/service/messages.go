@@ -108,3 +108,10 @@ func (s *MessagesService) GetMinMassageIdInChat(chatId int) (int, *errors.Error)
 	}
 	return id, nil
 }
+
+func (s *MessagesService) OnDeleteChat(chatId int) *errors.Error {
+	if err := s.repo.DeleteByChat(chatId); err != nil {
+		return err.Trace()
+	}
+	return nil
+}

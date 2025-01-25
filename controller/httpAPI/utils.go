@@ -16,7 +16,7 @@ func (h *Handler) writeJSON(w http.ResponseWriter, code int, v any) {
 }
 
 type responseError struct {
-	Error string `json:"message"`
+	Error string `json:"error"`
 }
 
 func (h *Handler) writeJSONError(w http.ResponseWriter, err *errors.Error) {

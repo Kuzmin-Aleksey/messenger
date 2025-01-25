@@ -33,7 +33,7 @@ func (c *Chats) New(chat *domain.Chat, creator int) (e *errors.Error) {
 	}
 	chat.Id = int(chatId)
 
-	if _, err := tx.Exec("INSERT INTO user_2_chat (user_id, chat_id, role_id) VALUES (?, ?, 2)", chat.Id, creator); err != nil {
+	if _, err := tx.Exec("INSERT INTO user_2_chat (user_id, chat_id, role_id) VALUES (?, ?, 2)", creator, chatId); err != nil {
 		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 
@@ -74,7 +74,7 @@ func (c *Chats) GetChatsByUser(userId int) ([]domain.Chat, *errors.Error) {
 	var chats []domain.Chat
 	for rows.Next() {
 		var chat domain.Chat
-		if err := rows.Scan(&chat.Id, &chat.Name); err != nil {
+		if err := rows.Scan(&chat.Id, &chat.Name, new(string)); err != nil {
 			return nil, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 		}
 		chats = append(chats, chat)

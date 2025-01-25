@@ -25,15 +25,15 @@ func New(msg any, userMsg any, code int) *Error {
 
 func New1Msg(msg any, code int) *Error {
 	return &Error{
-		TracePath: getTrace(2),
-		Msg:       fmt.Sprint(msg),
-		Code:      code,
+		TracePath:   getTrace(2),
+		UserMessage: fmt.Sprint(msg),
+		Code:        code,
 	}
 }
 
 func (e *Error) Error() string {
-	if len(e.UserMessage) == 0 {
-		return e.TracePath + ":\n" + e.Msg
+	if len(e.Msg) == 0 {
+		return e.TracePath + ":\n" + e.UserMessage
 	}
 	return e.TracePath + ":\n" + e.UserMessage + ": " + e.Msg
 }

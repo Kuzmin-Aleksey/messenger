@@ -7,6 +7,7 @@ import (
 	"messanger/domain"
 	"messanger/pkg/errors"
 	"net/http"
+	"time"
 )
 
 type ChatService struct {
@@ -28,6 +29,7 @@ func (s *ChatService) NewChat(ctx context.Context, chat *domain.Chat) *errors.Er
 	if err := s.repo.New(chat, getUserId(ctx)); err != nil {
 		return err.Trace()
 	}
+
 	return nil
 }
 
@@ -58,6 +60,7 @@ func (s *ChatService) GetUserChats(ctx context.Context) ([]domain.Chat, *errors.
 	return chats, nil
 }
 
+// Delete write chat id to chan OnDeleteChat
 func (s *ChatService) Delete(ctx context.Context, id int) *errors.Error {
 	if id <= 0 {
 		return errors.New1Msg("chat id is missing", http.StatusBadRequest)
@@ -74,9 +77,16 @@ func (s *ChatService) Delete(ctx context.Context, id int) *errors.Error {
 	if err := s.repo.Delete(id); err != nil {
 		return err.Trace()
 	}
+
+	timeout := time.Tick(time.Millisecond * 500)
 	select {
 	case s.OnDeleteChat <- id:
-	default:
+	case <-timeout:
 	}
+	return nil
+}
+
+func (s *ChatService) OnDeleteUser(userId int) *errors.Error {
+
 	return nil
 }

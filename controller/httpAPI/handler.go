@@ -14,10 +14,11 @@ type Logger interface {
 type Handler struct {
 	router *mux.Router
 
-	auth     *service.AuthService
-	users    *service.UsersService
-	messages *service.MessagesService
-	chats    *service.ChatService
+	auth         *service.AuthService
+	users        *service.UsersService
+	messages     *service.MessagesService
+	chats        *service.ChatService
+	emailService *service.EmailService
 
 	errors Logger
 	info   *HttpLogger
@@ -30,6 +31,7 @@ func NewHandler(
 	users *service.UsersService,
 	messages *service.MessagesService,
 	chats *service.ChatService,
+	emailService *service.EmailService,
 
 	errors Logger,
 	// info io.Writer,
@@ -40,6 +42,7 @@ func NewHandler(
 		messages:     messages,
 		chats:        chats,
 		errors:       errors,
+		emailService: emailService,
 		info:         NewHttpLogger(),
 		router:       mux.NewRouter(),
 		eventHandler: NewEventHandler(),
@@ -48,12 +51,14 @@ func NewHandler(
 
 func (h *Handler) InitRouter() {
 	h.router.HandleFunc("/auth/register", h.MwLogging(h.Register)).Methods(http.MethodPost)
-	h.router.HandleFunc("/auth/login", h.MwLogging(h.Register)).Methods(http.MethodPost)
+	h.router.HandleFunc("/auth/login", h.MwLogging(h.Login)).Methods(http.MethodPost)
 	h.router.HandleFunc("/auth/refresh-tokens", h.MwLogging(h.UpdateTokens)).Methods(http.MethodPost)
 
 	h.router.HandleFunc("/self/update", h.MwWithAuth(h.MwLogging(h.UpdateUserSelf))).Methods(http.MethodPost)
 	h.router.HandleFunc("/self/delete", h.MwWithAuth(h.MwLogging(h.DeleteUserSelf))).Methods(http.MethodPost)
-	h.router.HandleFunc("/self/get-info", h.MwWithAuth(h.MwLogging(h.GetUserSelfInfo))).Methods(http.MethodGet)
+	h.router.HandleFunc("/self/info", h.MwWithAuth(h.MwLogging(h.GetUserSelfInfo))).Methods(http.MethodGet)
+
+	h.router.HandleFunc("/confirm-email", h.MwLogging(h.ConfirmEmail))
 
 	h.router.HandleFunc("/users/get-by-chat", h.MwWithAuth(h.MwLogging(h.GetUsersByChat))).Methods(http.MethodGet)
 	h.router.HandleFunc("/users/add-to-chat", h.MwWithAuth(h.MwLogging(h.AddUserToChat))).Methods(http.MethodPost)

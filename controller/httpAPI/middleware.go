@@ -20,7 +20,7 @@ func (h *Handler) MwWithAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		token := typeAndToken[1]
-		userId, err := h.auth.CheckAccessToken(token)
+		userId, err := h.auth.TokenManager.DecodeToken(token)
 		if err != nil {
 			h.writeJSONError(w, err)
 			return

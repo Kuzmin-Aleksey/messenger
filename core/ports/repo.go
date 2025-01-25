@@ -7,6 +7,7 @@ import (
 
 type UsersRepo interface {
 	New(user *domain.User) *errors.Error
+	SetConfirm(userId int, v bool) *errors.Error
 	AddUserToChat(userId int, chatId int, role string) *errors.Error
 	CheckUserInChat(userId int, chatId int) (bool, *errors.Error)
 	DeleteUserFromChat(chatId int, userId int) *errors.Error
@@ -16,6 +17,7 @@ type UsersRepo interface {
 	GetById(id int) (*domain.User, *errors.Error)
 	GetByEmail(email string) (*domain.User, *errors.Error)
 	GetByEmailWithPass(email, password string) (*domain.User, *errors.Error)
+	CheckPass(id int, password string) (bool, *errors.Error)
 	Delete(id int) *errors.Error
 }
 
@@ -35,4 +37,5 @@ type MessagesRepo interface {
 	GetById(id int) (*domain.Message, *errors.Error)
 	Update(id int, text string) *errors.Error
 	Delete(id int) *errors.Error
+	DeleteByChat(chatId int) *errors.Error
 }

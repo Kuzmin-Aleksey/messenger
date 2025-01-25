@@ -7,18 +7,28 @@ import (
 	"messanger/domain"
 	"messanger/pkg/errors"
 	"net/http"
+	"time"
 )
 
-type UsersService struct {
-	repo         ports.UsersRepo
-	OnDeleteUser chan int // to delete chats
+type ConfirmEmailService interface {
+	SetOnConfirm(f func(userId int) *errors.Error)
+	ToConfirming(userId int, email string) *errors.Error
 }
 
-func NewUsersService(repo ports.UsersRepo) *UsersService {
-	return &UsersService{
-		repo:         repo,
-		OnDeleteUser: make(chan int, 10),
+type UsersService struct {
+	repo                ports.UsersRepo
+	confirmEmailService ConfirmEmailService
+	OnDeleteUser        chan int // to delete chats
+}
+
+func NewUsersService(repo ports.UsersRepo, confirmEmailService ConfirmEmailService) *UsersService {
+	s := &UsersService{
+		repo:                repo,
+		confirmEmailService: confirmEmailService,
+		OnDeleteUser:        make(chan int, 10),
 	}
+	confirmEmailService.SetOnConfirm(s.OnConfirm)
+	return s
 }
 
 func (s *UsersService) CreateUser(user *domain.User) *errors.Error {
@@ -28,11 +38,40 @@ func (s *UsersService) CreateUser(user *domain.User) *errors.Error {
 	if err := s.repo.New(user); err != nil {
 		return err.Trace()
 	}
+	if err := s.confirmEmailService.ToConfirming(user.Id, user.Email); err != nil {
+		return err.Trace()
+	}
 	return nil
 }
 
-func (s *UsersService) UpdateUser(ctx context.Context, user *domain.User) *errors.Error {
+func (s *UsersService) OnConfirm(userId int) *errors.Error {
+	if err := s.repo.SetConfirm(userId, true); err != nil {
+		return err.Trace()
+	}
+	return nil
+}
+
+func (s *UsersService) UpdateUser(ctx context.Context, user *domain.User, lasPass string) *errors.Error {
 	user.Id = getUserId(ctx)
+	if len(user.Email) != 0 {
+		if err := s.repo.SetConfirm(user.Id, false); err != nil {
+			return err.Trace()
+		}
+		if err := s.confirmEmailService.ToConfirming(user.Id, user.Email); err != nil {
+			return err.Trace()
+		}
+	}
+	if len(user.Password) != 0 {
+		if len(lasPass) == 0 {
+			return errors.New1Msg("missing last password", http.StatusBadRequest)
+		}
+		if ok, err := s.repo.CheckPass(user.Id, lasPass); !ok {
+			if err != nil {
+				return err.Trace()
+			}
+			return errors.New1Msg("invalid password", http.StatusUnauthorized)
+		}
+	}
 	if err := s.repo.Update(user); err != nil {
 		return err.Trace()
 	}
@@ -47,14 +86,16 @@ func (s *UsersService) GetUserInfo(ctx context.Context) (*domain.User, *errors.E
 	return user, nil
 }
 
+// DeleteUser write user id to chan OnDeleteUser
 func (s *UsersService) DeleteUser(ctx context.Context) *errors.Error {
 	id := getUserId(ctx)
 	if err := s.repo.Delete(id); err != nil {
 		return err.Trace()
 	}
+	timeout := time.Tick(time.Millisecond * 500)
 	select {
 	case s.OnDeleteUser <- id:
-	default:
+	case <-timeout:
 	}
 	return nil
 }

@@ -6,7 +6,6 @@ import (
 	"messanger/config"
 	"messanger/core/ports"
 	"testing"
-	"time"
 )
 
 var s *AuthService
@@ -18,8 +17,8 @@ func init() {
 	c = cache.NewCache()
 
 	s = NewAuthService(c, nil, &config.AuthServiceConfig{
-		AccessTokenTTL:  time.Minute,
-		RefreshTokenTTL: time.Minute,
+		AccessTokenTTLMin:   15,
+		RefreshTokenTTLDays: 30,
 	})
 }
 

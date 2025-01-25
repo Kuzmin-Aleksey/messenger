@@ -3,10 +3,10 @@ package service
 import (
 	"crypto/sha256"
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"messanger/config"
 	"messanger/core/ports"
+	"messanger/core/service/jwt"
 	"messanger/domain"
 	"messanger/pkg/errors"
 	"net/http"
@@ -14,17 +14,27 @@ import (
 )
 
 type AuthService struct {
-	cache ports.TokenCache
-	repo  ports.UsersRepo
-	cfg   *config.AuthServiceConfig
+	cache           ports.TokenCache
+	repo            ports.UsersRepo
+	accessTokenTTL  time.Duration
+	refreshTokenTTL time.Duration
+	TokenManager    *jwt.TokenManager
 }
 
 func NewAuthService(cache ports.TokenCache, repo ports.UsersRepo, cfg *config.AuthServiceConfig) *AuthService {
-	cache.SetTTL(cfg.RefreshTokenTTL)
+	accessTokenTTL := time.Duration(cfg.AccessTokenTTLMin) * time.Minute
+	refreshTokenTTL := time.Duration(cfg.RefreshTokenTTLDays) * time.Hour * 24
+	fmt.Println(refreshTokenTTL)
+	cache.SetTTL(refreshTokenTTL)
+
+	TokenManager := jwt.NewTokenManager(time.Duration(cfg.AccessTokenTTLMin)*time.Minute, []byte(cfg.AccessTokenSignKey))
+
 	return &AuthService{
-		cache: cache,
-		repo:  repo,
-		cfg:   cfg,
+		cache:           cache,
+		repo:            repo,
+		refreshTokenTTL: refreshTokenTTL,
+		accessTokenTTL:  accessTokenTTL,
+		TokenManager:    TokenManager,
 	}
 }
 
@@ -34,12 +44,12 @@ func (s *AuthService) Login(email, password string) (*domain.Tokens, *errors.Err
 		return nil, err.Trace()
 	}
 
-	access, accessExpires, err := s.newAccessToken(user.Id)
+	access, accessExpires, err := s.TokenManager.NewToken(user.Id)
 	if err != nil {
 		return nil, err.Trace()
 	}
 
-	refreshExpired := time.Now().Add(s.cfg.RefreshTokenTTL)
+	refreshExpired := time.Now().Add(s.refreshTokenTTL)
 	refresh := s.newRefreshToken()
 	if err := s.cache.Set(refresh, user.Id); err != nil {
 		return nil, err.Trace()
@@ -66,12 +76,12 @@ func (s *AuthService) UpdateTokens(refresh string) (*domain.Tokens, *errors.Erro
 		return nil, err.Trace()
 	}
 
-	access, accessExpired, err := s.newAccessToken(userId)
+	access, accessExpired, err := s.TokenManager.NewToken(userId)
 	if err != nil {
 		return nil, err.Trace()
 	}
 
-	refreshExpired := time.Now().Add(s.cfg.RefreshTokenTTL)
+	refreshExpired := time.Now().Add(s.refreshTokenTTL)
 	newRefresh := s.newRefreshToken()
 	if err := s.cache.Set(newRefresh, userId); err != nil {
 		return nil, err.Trace()
@@ -83,58 +93,6 @@ func (s *AuthService) UpdateTokens(refresh string) (*domain.Tokens, *errors.Erro
 		AccessTokenExpiresAt:  accessExpired,
 		RefreshTokenExpiresAt: refreshExpired,
 	}, err
-}
-
-var tokenKey = []byte("ac4873yqc34v5")
-
-const (
-	ErrInvalidToken = "invalid token"
-)
-
-func (s *AuthService) CheckAccessToken(access string) (int, *errors.Error) {
-	claims, err := jwt.Parse(access, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-
-		return tokenKey, nil
-	})
-	if err != nil {
-		return 0, errors.New(err, ErrInvalidToken, http.StatusUnauthorized)
-	}
-	mapClaims, ok := claims.Claims.(jwt.MapClaims)
-	if !ok {
-		return 0, errors.New("claims is not a map", ErrInvalidToken, http.StatusUnauthorized)
-	}
-
-	userId, ok := mapClaims["id"]
-	if !ok {
-		return 0, errors.New("userId is not in map claims", ErrInvalidToken, http.StatusUnauthorized)
-	}
-	tUnix, ok := mapClaims["expires"]
-	if !ok {
-		return 0, errors.New("expires time is not in map claims", ErrInvalidToken, http.StatusUnauthorized)
-	}
-
-	if time.Now().After(time.Unix(int64(tUnix.(float64)), 0)) {
-		return 0, errors.New1Msg("token expired", http.StatusUnauthorized)
-	}
-
-	return int(userId.(float64)), nil
-}
-
-func (s *AuthService) newAccessToken(userId int) (string, time.Time, *errors.Error) {
-	expires := time.Now().Add(s.cfg.AccessTokenTTL)
-
-	claims := jwt.NewWithClaims(jwt.SigningMethodHS512, jwt.MapClaims{
-		"id":      userId,
-		"expires": expires.Unix(),
-	})
-	token, err := claims.SignedString(tokenKey)
-	if err != nil {
-		return "", expires, errors.New(err, "invalid token", http.StatusBadRequest)
-	}
-	return token, expires, nil
 }
 
 func (s *AuthService) newRefreshToken() string {
