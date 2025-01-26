@@ -17,7 +17,7 @@ func (h *Handler) CreateMessage(w http.ResponseWriter, r *http.Request) {
 		h.writeJSONError(w, err.Trace())
 		return
 	}
-	h.eventHandler.OnCreateMessage(m)
+	go h.eventHandler.OnCreateMessage(m)
 }
 
 func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
@@ -32,7 +32,7 @@ func (h *Handler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.eventHandler.OnUpdateMessage(m)
+	go h.eventHandler.OnUpdateMessage(m)
 }
 
 func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +48,7 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.eventHandler.OnDeleteMessage(messageId.Id, m.ChatId)
+	go h.eventHandler.OnDeleteMessage(messageId.Id, m.ChatId)
 }
 
 type getMessagesInput struct {

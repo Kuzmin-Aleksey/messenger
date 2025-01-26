@@ -8,12 +8,15 @@ import (
 	"messanger/pkg/errors"
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 )
 
 const (
 	EventTypeCreate = "create"
 	EventTypeUpdate = "update"
 	EventTypeDelete = "delete"
+	EventTypeOnline = "online"
 )
 
 type Event struct {
@@ -23,6 +26,7 @@ type Event struct {
 
 type EventHandler struct {
 	connects   map[int]map[int][]*websocket.Conn // map[chat_id]map[user_id][user connections]
+	mu         sync.RWMutex
 	wsUpgrader *websocket.Upgrader
 	errors     Logger
 }
@@ -36,6 +40,22 @@ func NewEventHandler(l Logger) *EventHandler {
 		},
 		errors: l,
 	}
+
+	go func() {
+		for {
+			time.Sleep(time.Second * 5)
+			for chatId, chat := range h.connects {
+				for userId, connects := range chat {
+					for i, conn := range connects {
+						if err := h.ping(conn); err != nil {
+							h.errors.Println(err)
+							h.removeConnect(chatId, userId, i)
+						}
+					}
+				}
+			}
+		}
+	}()
 
 	return h
 }
@@ -61,7 +81,29 @@ func (e *EventHandler) OnDeleteMessage(id int, chatId int) {
 	})
 }
 
+func (e *EventHandler) OnUpdateOnline(chatId int) {
+	onlineUsers := make([]int, 0, len(e.connects[chatId]))
+	for userId := range e.connects[chatId] {
+		onlineUsers = append(onlineUsers, userId)
+	}
+
+	e.writeToChat(chatId, &Event{
+		Type: EventTypeOnline,
+		Data: onlineUsers,
+	})
+}
+
+func (e *EventHandler) ping(conn *websocket.Conn) *errors.Error {
+	if err := conn.WriteMessage(websocket.PingMessage, []byte("ping")); err != nil {
+		return errors.New(err, "filed ping user", http.StatusInternalServerError)
+	}
+	return nil
+}
+
 func (e *EventHandler) writeToChat(chatId int, v any) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
 	chat := e.connects[chatId]
 	if chat == nil {
 		return
@@ -69,30 +111,37 @@ func (e *EventHandler) writeToChat(chatId int, v any) {
 
 	for userId, connects := range chat {
 		for i, conn := range connects {
-			go func() {
-				if err := conn.WriteJSON(v); err != nil {
-					e.errors.Println(fmt.Errorf("error on WriteJSON: %v, user id: %d", errors.Trace(err), userId))
-					conn.Close()
-					e.removeConnect(chatId, userId, i)
-				}
-			}()
+			if err := conn.WriteJSON(v); err != nil {
+				e.errors.Println(fmt.Errorf("error on WriteJSON: %w, user id: %d", errors.Trace(err), userId))
+				conn.Close()
+				e.removeConnect(chatId, userId, i)
+			}
 		}
 	}
 }
 
 func (e *EventHandler) addConnect(chatId int, userId int, c *websocket.Conn) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	if _, ok := e.connects[chatId]; !ok {
 		e.connects[chatId] = make(map[int][]*websocket.Conn)
 	}
 	e.connects[chatId][userId] = append(e.connects[chatId][userId], c)
+	go e.OnUpdateOnline(chatId)
 }
 
 func (e *EventHandler) removeConnect(chatId int, userId int, i int) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	e.connects[chatId][userId] = append(e.connects[chatId][userId][:i], e.connects[chatId][userId][i+1:]...)
 	if len(e.connects[chatId][userId]) == 0 {
 		delete(e.connects[chatId], userId)
 		if len(e.connects[chatId]) == 0 {
 			delete(e.connects, chatId)
+		} else {
+			go e.OnUpdateOnline(chatId)
 		}
 	}
 }
