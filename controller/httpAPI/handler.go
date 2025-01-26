@@ -62,6 +62,7 @@ func (h *Handler) InitRouter() {
 
 	h.router.HandleFunc("/users/get-by-chat", h.MwLogging(h.MwWithAuth(h.GetUsersByChat))).Methods(http.MethodGet)
 	h.router.HandleFunc("/users/add-to-chat", h.MwLogging(h.MwWithAuth(h.AddUserToChat))).Methods(http.MethodPost)
+	h.router.HandleFunc("/users/set-role", h.MwLogging(h.MwWithAuth(h.SetRole))).Methods(http.MethodPost)
 	h.router.HandleFunc("/users/delete-from-chat", h.MwLogging(h.MwWithAuth(h.DeleteUserFromChat))).Methods(http.MethodPost)
 
 	h.router.HandleFunc("/chats/create", h.MwLogging(h.MwWithAuth(h.CreateChat))).Methods(http.MethodPost)

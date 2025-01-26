@@ -75,12 +75,12 @@ func (h *Handler) GetUsersByChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.users.GetUsersByChat(r.Context(), chatId.Id)
+	users, err := h.users.GetUsersByChat(r.Context(), chatId.Id)
 	if err != nil {
 		h.writeJSONError(w, err)
 		return
 	}
-	h.writeJSON(w, http.StatusOK, user)
+	h.writeJSON(w, http.StatusOK, users)
 }
 
 type setRoleRequest struct {
