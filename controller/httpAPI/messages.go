@@ -54,7 +54,7 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 type getMessagesInput struct {
 	ChatId int `json:"chat_id"`
 	LastId int `json:"last_id"`
-	Limit  int `json:"limit"`
+	Count  int `json:"count"`
 }
 
 func (h *Handler) GetMessages(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +64,7 @@ func (h *Handler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messages, err := h.messages.GetFromChat(r.Context(), in.ChatId, in.LastId, in.Limit)
+	messages, err := h.messages.GetFromChat(r.Context(), in.ChatId, in.LastId, in.Count)
 	if err != nil {
 		h.writeJSONError(w, err.Trace())
 		return

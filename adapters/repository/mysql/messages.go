@@ -32,7 +32,7 @@ func (m *Messages) New(message *domain.Message) *errors.Error {
 }
 
 func (m *Messages) GetByChat(chatId int, lastId int, count int) ([]domain.Message, *errors.Error) {
-	var messages []domain.Message
+	messages := make([]domain.Message, 0)
 
 	var query string
 	var args []any
@@ -57,6 +57,7 @@ func (m *Messages) GetByChat(chatId int, lastId int, count int) ([]domain.Messag
 		if err := rows.Scan(&message.Id, &message.ChatId, &message.UserId, &message.Text, &message.Time); err != nil {
 			return nil, errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 		}
+		messages = append(messages, message)
 	}
 	return messages, nil
 }

@@ -44,7 +44,7 @@ func (e *Error) Trace() *Error {
 }
 
 func Trace(err error) error {
-	return errors.New(getTrace(1) + " > " + err.Error())
+	return errors.New(getTrace(2) + " > " + err.Error())
 }
 
 func getTrace(skip int) string {

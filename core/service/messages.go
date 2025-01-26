@@ -7,6 +7,7 @@ import (
 	"messanger/domain"
 	"messanger/pkg/errors"
 	"net/http"
+	"time"
 )
 
 type UserChecker interface {
@@ -36,6 +37,7 @@ func (s *MessagesService) CreateMessage(ctx context.Context, m *domain.Message) 
 			domain.ErrPermissionDenied, http.StatusForbidden)
 	}
 	m.UserId = userId
+	m.Time = time.Now()
 	if err := s.repo.New(m); err != nil {
 		return err.Trace()
 	}

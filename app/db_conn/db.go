@@ -11,7 +11,7 @@ import (
 )
 
 func Connect(cfg *config.MySQLConfig) (*sql.DB, error) {
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", cfg.Username, cfg.Password, cfg.Host, cfg.Schema))
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true", cfg.Username, cfg.Password, cfg.Host, cfg.Schema))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
