@@ -62,6 +62,13 @@ func (s *ChatService) GetUserChats(ctx context.Context) ([]domain.Chat, *errors.
 
 // Delete write chat id to chan OnDeleteChat
 func (s *ChatService) Delete(ctx context.Context, id int) *errors.Error {
+	if ctx.Value("IsSystemCall") != nil {
+		if err := s.repo.Delete(id); err != nil {
+			return err.Trace()
+		}
+		return nil
+	}
+
 	if id <= 0 {
 		return errors.New1Msg("chat id is missing", http.StatusBadRequest)
 	}
@@ -83,10 +90,5 @@ func (s *ChatService) Delete(ctx context.Context, id int) *errors.Error {
 	case s.OnDeleteChat <- id:
 	case <-timeout:
 	}
-	return nil
-}
-
-func (s *ChatService) OnDeleteUser(userId int) *errors.Error {
-
 	return nil
 }

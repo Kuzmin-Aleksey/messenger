@@ -1,7 +1,6 @@
 package service
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"github.com/google/uuid"
 	"messanger/config"
@@ -98,12 +97,4 @@ func (s *AuthService) UpdateTokens(refresh string) (*domain.Tokens, *errors.Erro
 func (s *AuthService) newRefreshToken() string {
 	uid, _ := uuid.NewUUID()
 	return uid.String()
-}
-
-var passwordSalt = []byte("avm84ut397q58y")
-
-func (s *AuthService) hashPassword(password string) string {
-	h := sha256.New()
-	h.Write([]byte(password))
-	return string(h.Sum(passwordSalt))
 }

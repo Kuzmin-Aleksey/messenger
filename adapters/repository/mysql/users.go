@@ -63,6 +63,20 @@ func (u *Users) DeleteUserFromChat(chatId int, userId int) *errors.Error {
 	return nil
 }
 
+func (u *Users) SetRole(userId int, chatId int, role string) *errors.Error {
+	var roleId int
+	if err := u.db.QueryRow("SELECT id FROM roles WHERE role=?", role).Scan(&roleId); err != nil {
+		if errorsutils.Is(err, sql.ErrNoRows) {
+			return errors.New(err, "unknown role "+role, http.StatusBadRequest)
+		}
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
+	}
+	if _, err := u.db.Exec("UPDATE user_2_chat SET role_id=? WHERE user_id = ? AND chat_id = ?", roleId, userId, chatId); err != nil {
+		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
+	}
+	return nil
+}
+
 const getRoleQuery = `
 SELECT roles.role
 FROM user_2_chat

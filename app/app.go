@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"log"
 	cache "messanger/adapters/cache/redis"
 	"messanger/adapters/repository/mysql"
@@ -50,8 +51,9 @@ func Run(cfgPath string) {
 					errorsLogger.Println(err)
 				}
 
-			case userId := <-userService.OnDeleteUser:
-				if err := chatService.OnDeleteUser(userId); err != nil {
+			case chatId := <-userService.DeleteChat:
+				ctx := context.WithValue(context.Background(), "IsSystemCall", struct{}{})
+				if err := chatService.Delete(ctx, chatId); err != nil {
 					errorsLogger.Println(err)
 				}
 			}

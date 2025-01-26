@@ -83,6 +83,24 @@ func (h *Handler) GetUsersByChat(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, user)
 }
 
+type setRoleRequest struct {
+	UserId int    `json:"user_id"`
+	ChatId int    `json:"chat_id"`
+	Role   string `json:"role"`
+}
+
+func (h *Handler) SetRole(w http.ResponseWriter, r *http.Request) {
+	req := new(setRoleRequest)
+	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+		h.writeJSONError(w, errors.New(err, domain.ErrParseJson, http.StatusBadRequest))
+		return
+	}
+	if err := h.users.SetRole(r.Context(), req.UserId, req.ChatId, req.Role); err != nil {
+		h.writeJSONError(w, err)
+		return
+	}
+}
+
 type deleteUserToChatRequest struct {
 	UserId int `json:"user_id"`
 	ChatId int `json:"chat_id"`

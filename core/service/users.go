@@ -18,14 +18,14 @@ type ConfirmEmailService interface {
 type UsersService struct {
 	repo                ports.UsersRepo
 	confirmEmailService ConfirmEmailService
-	OnDeleteUser        chan int // to delete chats
+	DeleteChat          chan int
 }
 
 func NewUsersService(repo ports.UsersRepo, confirmEmailService ConfirmEmailService) *UsersService {
 	s := &UsersService{
 		repo:                repo,
 		confirmEmailService: confirmEmailService,
-		OnDeleteUser:        make(chan int, 10),
+		DeleteChat:          make(chan int, 10),
 	}
 	confirmEmailService.SetOnConfirm(s.OnConfirm)
 	return s
@@ -86,16 +86,10 @@ func (s *UsersService) GetUserInfo(ctx context.Context) (*domain.User, *errors.E
 	return user, nil
 }
 
-// DeleteUser write user id to chan OnDeleteUser
 func (s *UsersService) DeleteUser(ctx context.Context) *errors.Error {
 	id := getUserId(ctx)
 	if err := s.repo.Delete(id); err != nil {
 		return err.Trace()
-	}
-	timeout := time.Tick(time.Millisecond * 500)
-	select {
-	case s.OnDeleteUser <- id:
-	case <-timeout:
 	}
 	return nil
 }
@@ -136,6 +130,23 @@ func (s *UsersService) AddUserToChat(ctx context.Context, userId int, chatId int
 	return nil
 }
 
+func (s *UsersService) SetRole(ctx context.Context, userId int, chatId int, role string) *errors.Error {
+	actionerId := getUserId(ctx)
+	actionerRole, err := s.repo.GetRole(actionerId, chatId)
+	if err != nil {
+		return err.Trace()
+	}
+	if actionerRole != "admin" {
+		return errors.New(fmt.Sprintf("user (%d) tried set role (%s) to user (%d)", actionerId, role, userId),
+			domain.ErrPermissionDenied, http.StatusForbidden)
+	}
+	if err := s.repo.SetRole(userId, chatId, role); err != nil {
+		return err.Trace()
+	}
+	return nil
+}
+
+// DeleteUserFromChat if last user is deleted, the chat will be deleted.
 func (s *UsersService) DeleteUserFromChat(ctx context.Context, userId int, chatId int) *errors.Error {
 	if chatId <= 0 || userId <= 0 {
 		return errors.New1Msg("missing user id or chat id", http.StatusBadRequest)
@@ -153,12 +164,24 @@ func (s *UsersService) DeleteUserFromChat(ctx context.Context, userId int, chatI
 		return errors.New(fmt.Sprintf("user (%d) tried to delete a user (%d) in chat (%d)", actionerId, userId, chatId),
 			domain.ErrPermissionDenied, http.StatusForbidden)
 	}
-	if role == "admin" && actioner.Id != userId {
+	if role == "admin" && actioner.Id == userId {
 		return errors.New(fmt.Sprintf("user (%d - %s) tried to delete self", actionerId, role),
 			"admin can't delete self", http.StatusConflict)
 	}
-	if err := s.repo.Delete(userId); err != nil {
+	if err := s.repo.DeleteUserFromChat(userId, chatId); err != nil {
 		return err.Trace()
+	}
+
+	count, err := s.repo.CountOfUsersInChat(chatId)
+	if err != nil {
+		return err.Trace()
+	}
+	if count == 0 {
+		timeout := time.Tick(time.Millisecond * 500)
+		select {
+		case s.DeleteChat <- chatId:
+		case <-timeout:
+		}
 	}
 	return nil
 }

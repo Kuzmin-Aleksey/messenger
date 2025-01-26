@@ -11,8 +11,10 @@ type UsersRepo interface {
 	AddUserToChat(userId int, chatId int, role string) *errors.Error
 	CheckUserInChat(userId int, chatId int) (bool, *errors.Error)
 	DeleteUserFromChat(chatId int, userId int) *errors.Error
+	SetRole(userId int, chatId int, role string) *errors.Error
 	GetRole(userId int, chatId int) (string, *errors.Error)
 	GetUsersByChat(chatId int) ([]domain.User, *errors.Error)
+	CountOfUsersInChat(chatId int) (int, *errors.Error)
 	Update(user *domain.User) *errors.Error
 	GetById(id int) (*domain.User, *errors.Error)
 	GetByEmail(email string) (*domain.User, *errors.Error)
