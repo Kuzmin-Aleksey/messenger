@@ -68,12 +68,12 @@ func (e *EventHandler) writeToChat(chatId int, v any) {
 	}
 
 	for userId, connects := range chat {
-		for _, conn := range connects {
+		for i, conn := range connects {
 			go func() {
 				if err := conn.WriteJSON(v); err != nil {
 					e.errors.Println(fmt.Errorf("error on WriteJSON: %v, user id: %d", errors.Trace(err), userId))
 					conn.Close()
-					e.removeConnect(chatId, userId)
+					e.removeConnect(chatId, userId, i)
 				}
 			}()
 		}
@@ -87,10 +87,13 @@ func (e *EventHandler) addConnect(chatId int, userId int, c *websocket.Conn) {
 	e.connects[chatId][userId] = append(e.connects[chatId][userId], c)
 }
 
-func (e *EventHandler) removeConnect(chatId int, userId int) {
-	delete(e.connects[chatId], userId)
-	if len(e.connects[chatId]) == 0 {
-		delete(e.connects, chatId)
+func (e *EventHandler) removeConnect(chatId int, userId int, i int) {
+	e.connects[chatId][userId] = append(e.connects[chatId][userId][:i], e.connects[chatId][userId][i+1:]...)
+	if len(e.connects[chatId][userId]) == 0 {
+		delete(e.connects[chatId], userId)
+		if len(e.connects[chatId]) == 0 {
+			delete(e.connects, chatId)
+		}
 	}
 }
 
