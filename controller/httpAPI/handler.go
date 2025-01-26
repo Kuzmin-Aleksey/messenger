@@ -45,7 +45,7 @@ func NewHandler(
 		emailService: emailService,
 		info:         NewHttpLogger(),
 		router:       mux.NewRouter(),
-		eventHandler: NewEventHandler(),
+		eventHandler: NewEventHandler(errors),
 	}
 }
 
@@ -74,8 +74,8 @@ func (h *Handler) InitRouter() {
 	h.router.HandleFunc("/messages/update", h.MwLogging(h.MwWithAuth(h.UpdateMessage))).Methods(http.MethodPost)
 	h.router.HandleFunc("/messages/delete", h.MwLogging(h.MwWithAuth(h.DeleteMessage))).Methods(http.MethodPost)
 	h.router.HandleFunc("/messages/get-by-chat", h.MwLogging(h.MwWithAuth(h.GetMessages))).Methods(http.MethodGet)
-	h.router.HandleFunc("/messages/min-id-in-chat", h.MwLogging(h.MwWithAuth(h.GetMessages))).Methods(http.MethodGet)
-	h.router.HandleFunc("/messages/ws", h.MwLogging(h.MwWithAuth(h.eventHandler.HandleWS)))
+	h.router.HandleFunc("/messages/min-id-in-chat", h.MwLogging(h.MwWithAuth(h.GetMinMassageIdInChat))).Methods(http.MethodGet)
+	h.router.HandleFunc("/messages/ws", h.MwLogging(h.MwWithAuth(h.MwWithHijacker(h.eventHandler.HandleWS))))
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

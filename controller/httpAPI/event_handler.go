@@ -22,18 +22,19 @@ type Event struct {
 }
 
 type EventHandler struct {
-	connects   map[int]map[int]*websocket.Conn
+	connects   map[int]map[int][]*websocket.Conn // map[chat_id]map[user_id][user connections]
 	wsUpgrader *websocket.Upgrader
 	errors     Logger
 }
 
-func NewEventHandler() *EventHandler {
+func NewEventHandler(l Logger) *EventHandler {
 	h := &EventHandler{
-		connects: make(map[int]map[int]*websocket.Conn),
+		connects: make(map[int]map[int][]*websocket.Conn),
 		wsUpgrader: &websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
+		errors: l,
 	}
 
 	return h
@@ -66,20 +67,24 @@ func (e *EventHandler) writeToChat(chatId int, v any) {
 		return
 	}
 
-	for userId, conn := range chat {
-		if err := conn.WriteJSON(v); err != nil {
-			e.errors.Println(fmt.Errorf("error on WriteJSON: %v, user id: %d", errors.Trace(err), userId))
-			conn.Close()
-			e.removeConnect(chatId, userId)
+	for userId, connects := range chat {
+		for _, conn := range connects {
+			go func() {
+				if err := conn.WriteJSON(v); err != nil {
+					e.errors.Println(fmt.Errorf("error on WriteJSON: %v, user id: %d", errors.Trace(err), userId))
+					conn.Close()
+					e.removeConnect(chatId, userId)
+				}
+			}()
 		}
 	}
 }
 
 func (e *EventHandler) addConnect(chatId int, userId int, c *websocket.Conn) {
 	if _, ok := e.connects[chatId]; !ok {
-		e.connects[chatId] = make(map[int]*websocket.Conn)
+		e.connects[chatId] = make(map[int][]*websocket.Conn)
 	}
-	e.connects[chatId][userId] = c
+	e.connects[chatId][userId] = append(e.connects[chatId][userId], c)
 }
 
 func (e *EventHandler) removeConnect(chatId int, userId int) {
@@ -92,7 +97,7 @@ func (e *EventHandler) removeConnect(chatId int, userId int) {
 func (e *EventHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := r.ParseForm(); err != nil {
-		e.errors.Println(errors.Trace(err))
+		e.errors.Println(errors.Trace(fmt.Errorf(domain.ErrParseForm + err.Error())))
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(responseError{domain.ErrParseForm})
 		return
@@ -100,7 +105,7 @@ func (e *EventHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 
 	chatId, err := strconv.Atoi(r.Form.Get("chat_id"))
 	if err != nil {
-		e.errors.Println(errors.Trace(err))
+		e.errors.Println(errors.Trace(fmt.Errorf("chat id invalid: %w", err)))
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(responseError{"invalid chat_id parameter"})
 		return
@@ -113,5 +118,4 @@ func (e *EventHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	e.addConnect(chatId, r.Context().Value("UserId").(int), ws)
-	ws.ReadMessage()
 }

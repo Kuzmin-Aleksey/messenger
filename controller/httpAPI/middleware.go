@@ -63,3 +63,30 @@ func (h *Handler) MwLogging(next http.HandlerFunc) http.HandlerFunc {
 		h.info.Log(r.Method, r.URL.Path, customWriter.StatusCode, r.RemoteAddr, uint64(r.ContentLength), uint64(customWriter.ContentLength), end.Sub(start))
 	}
 }
+
+type WriterHijacker struct {
+	http.ResponseWriter
+	http.Hijacker
+}
+
+func (h *Handler) MwWithHijacker(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := w.(http.Hijacker); ok {
+			next(w, r)
+		}
+		switch v := w.(type) {
+		case http.Hijacker:
+			next(w, r)
+		case *CustomWriter:
+			wHijacker := WriterHijacker{
+				ResponseWriter: w,
+				Hijacker:       v.ResponseWriter.(http.Hijacker),
+			}
+			next(wHijacker, r)
+		default:
+			h.errors.Printf("not found hijacker in writer")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+}
