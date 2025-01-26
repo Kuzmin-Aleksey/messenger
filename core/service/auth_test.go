@@ -9,7 +9,7 @@ import (
 )
 
 var s *AuthService
-var c ports.TokenCache
+var c ports.Cache
 
 const testId = 123
 

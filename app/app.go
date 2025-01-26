@@ -7,6 +7,7 @@ import (
 	"messanger/adapters/repository/mysql"
 	"messanger/app/db_conn"
 	"messanger/app/http_server"
+	"messanger/app/redis_conn"
 	"messanger/config"
 	"messanger/controller/httpAPI"
 	"messanger/core/service"
@@ -28,14 +29,15 @@ func Run(cfgPath string) {
 	}
 	defer db.Close()
 
+	redis, err := redis_conn.Connect(cfg.Redis)
+	if err != nil {
+		log.Fatal("redis connect error: ", err)
+	}
+
 	userRepo := mysql.NewUsers(db)
 	chatsRepo := mysql.NewChats(db)
 	messagesRepo := mysql.NewMessages(db)
-
-	c, err := cache.NewCache(cfg.Redis)
-	if err != nil {
-		log.Fatal("redis error: ", err)
-	}
+	c := cache.NewCache(redis)
 
 	emailService := service.NewEmailService(cfg.Email)
 	authService := service.NewAuthService(c, userRepo, cfg.AuthService)

@@ -3,8 +3,8 @@ package cache
 import (
 	"context"
 	errorsutils "errors"
+	"fmt"
 	"github.com/redis/go-redis/v9"
-	"messanger/config"
 	"messanger/domain"
 	"messanger/pkg/errors"
 	"net/http"
@@ -14,39 +14,21 @@ import (
 
 type Cache struct {
 	client *redis.Client
-	ttl    time.Duration
 }
 
-func NewCache(cfg *config.RedisConfig) (*Cache, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:     cfg.Host,
-		Password: cfg.Password,
-		DB:       cfg.DB,
-	})
-
-	if err := client.Ping(context.Background()).Err(); err != nil {
-		return nil, err
-	}
-
-	return &Cache{
-		client: client,
-		ttl:    time.Minute * 5,
-	}, nil
+func NewCache(client *redis.Client) *Cache {
+	return &Cache{client}
 }
 
-func (c *Cache) SetTTL(ttl time.Duration) {
-	c.ttl = ttl
-}
-
-func (c *Cache) Set(key string, v int) *errors.Error {
-	if err := c.client.Set(context.Background(), key, v, c.ttl).Err(); err != nil {
+func (c *Cache) Set(key any, v int, ttl time.Duration) *errors.Error {
+	if err := c.client.Set(context.Background(), fmt.Sprint(key), v, ttl).Err(); err != nil {
 		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
 }
 
-func (c *Cache) Get(key string) (int, *errors.Error) {
-	res := c.client.Get(context.Background(), key)
+func (c *Cache) Get(key any) (int, *errors.Error) {
+	res := c.client.Get(context.Background(), fmt.Sprint(key))
 	if err := res.Err(); err != nil {
 		if errorsutils.Is(err, redis.Nil) {
 			return 0, nil
@@ -59,8 +41,8 @@ func (c *Cache) Get(key string) (int, *errors.Error) {
 	return v, nil
 }
 
-func (c *Cache) Del(key string) *errors.Error {
-	if err := c.client.Del(context.Background(), key).Err(); err != nil {
+func (c *Cache) Del(key any) *errors.Error {
+	if err := c.client.Del(context.Background(), fmt.Sprint(key)).Err(); err != nil {
 		return errors.New(err, domain.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil

@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"github.com/google/uuid"
 	"messanger/config"
 	"messanger/core/ports"
@@ -13,18 +12,16 @@ import (
 )
 
 type AuthService struct {
-	cache           ports.TokenCache
+	cache           ports.Cache
 	repo            ports.UsersRepo
 	accessTokenTTL  time.Duration
 	refreshTokenTTL time.Duration
 	TokenManager    *jwt.TokenManager
 }
 
-func NewAuthService(cache ports.TokenCache, repo ports.UsersRepo, cfg *config.AuthServiceConfig) *AuthService {
+func NewAuthService(cache ports.Cache, repo ports.UsersRepo, cfg *config.AuthServiceConfig) *AuthService {
 	accessTokenTTL := time.Duration(cfg.AccessTokenTTLMin) * time.Minute
 	refreshTokenTTL := time.Duration(cfg.RefreshTokenTTLDays) * time.Hour * 24
-	fmt.Println(refreshTokenTTL)
-	cache.SetTTL(refreshTokenTTL)
 
 	TokenManager := jwt.NewTokenManager(time.Duration(cfg.AccessTokenTTLMin)*time.Minute, []byte(cfg.AccessTokenSignKey))
 
@@ -50,7 +47,7 @@ func (s *AuthService) Login(email, password string) (*domain.Tokens, *errors.Err
 
 	refreshExpired := time.Now().Add(s.refreshTokenTTL)
 	refresh := s.newRefreshToken()
-	if err := s.cache.Set(refresh, user.Id); err != nil {
+	if err := s.cache.Set(refresh, user.Id, s.refreshTokenTTL); err != nil {
 		return nil, err.Trace()
 	}
 
@@ -82,7 +79,7 @@ func (s *AuthService) UpdateTokens(refresh string) (*domain.Tokens, *errors.Erro
 
 	refreshExpired := time.Now().Add(s.refreshTokenTTL)
 	newRefresh := s.newRefreshToken()
-	if err := s.cache.Set(newRefresh, userId); err != nil {
+	if err := s.cache.Set(newRefresh, userId, s.refreshTokenTTL); err != nil {
 		return nil, err.Trace()
 	}
 

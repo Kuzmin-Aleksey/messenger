@@ -5,9 +5,8 @@ import (
 	"time"
 )
 
-type TokenCache interface {
-	SetTTL(ttl time.Duration)
-	Set(key string, v int) *errors.Error
-	Get(key string) (int, *errors.Error)
-	Del(key string) *errors.Error
+type Cache interface {
+	Set(key any, v int, ttl time.Duration) *errors.Error
+	Get(key any) (int, *errors.Error)
+	Del(key any) *errors.Error
 }
