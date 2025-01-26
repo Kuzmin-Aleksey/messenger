@@ -35,6 +35,14 @@ func (s *UsersService) CreateUser(user *domain.User) *errors.Error {
 	if len(user.Name) == 0 || len(user.Email) == 0 || len(user.Password) == 0 {
 		return errors.New1Msg("invalid user info", http.StatusBadRequest)
 	}
+	if _, err := s.repo.GetByEmail(user.Email); err != nil {
+		if err.Code != http.StatusNotFound {
+			return err
+		}
+	} else {
+		return errors.New1Msg("user already exists", http.StatusBadRequest)
+	}
+
 	if err := s.repo.New(user); err != nil {
 		return err.Trace()
 	}
