@@ -21,9 +21,11 @@ type HttpServerConfig struct {
 }
 
 type AuthServiceConfig struct {
-	AccessTokenTTLMin   int    `json:"access_token_min" yaml:"access_token_ttl_min"`
-	RefreshTokenTTLDays int    `json:"refresh_token_ttl_days" yaml:"refresh_token_ttl_days"`
-	AccessTokenSignKey  string `json:"access_token_sign_key" yaml:"access_token_sign_key"`
+	AccessTokenTTLMin    int    `json:"access_token_min" yaml:"access_token_ttl_min"`
+	RefreshTokenTTLDays  int    `json:"refresh_token_ttl_days" yaml:"refresh_token_ttl_days"`
+	AccessTokenSignKey   string `json:"access_token_sign_key" yaml:"access_token_sign_key"`
+	DurationBlockUserMin int    `json:"duration_block_user_min" yaml:"duration_block_user_min"`
+	LoginAttempts        int    `json:"login_attempts" yaml:"login_attempts"`
 }
 
 type RedisConfig struct {

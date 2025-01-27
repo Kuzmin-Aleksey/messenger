@@ -33,6 +33,7 @@ func Run(cfgPath string) {
 	if err != nil {
 		log.Fatal("redis connect error: ", err)
 	}
+	defer redis.Close()
 
 	userRepo := mysql.NewUsers(db)
 	chatsRepo := mysql.NewChats(db)
