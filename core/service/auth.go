@@ -107,7 +107,7 @@ func (s *AuthService) UpdateTokens(refresh string) (*domain.Tokens, *errors.Erro
 		return nil, err.Trace()
 	}
 	if userId == 0 {
-		return nil, errors.New1Msg("missing user id", http.StatusUnauthorized)
+		return nil, errors.New1Msg("invalid refresh token", http.StatusUnauthorized)
 	}
 
 	if err := s.cache.Del(refresh); err != nil {
@@ -127,7 +127,7 @@ func (s *AuthService) UpdateTokens(refresh string) (*domain.Tokens, *errors.Erro
 
 	return &domain.Tokens{
 		AccessToken:           access,
-		RefreshToken:          refresh,
+		RefreshToken:          newRefresh,
 		AccessTokenExpiresAt:  accessExpired,
 		RefreshTokenExpiresAt: refreshExpired,
 	}, err
