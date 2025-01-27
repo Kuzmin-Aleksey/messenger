@@ -6,8 +6,7 @@ import (
 )
 
 type Cache struct {
-	c   map[string]value
-	ttl time.Duration
+	c map[string]value
 }
 
 type value struct {
@@ -22,7 +21,7 @@ func NewCache() *Cache {
 
 	go func() {
 		for {
-			time.Sleep(time.Hour)
+			time.Sleep(time.Minute * 5)
 			now := time.Now()
 			for k, v := range c.c {
 				if now.After(v.t) {
@@ -35,14 +34,10 @@ func NewCache() *Cache {
 	return c
 }
 
-func (c *Cache) SetTTL(ttl time.Duration) {
-	c.ttl = ttl
-}
-
-func (c *Cache) Set(key string, v int) *errors.Error {
+func (c *Cache) Set(key string, v int, ttl time.Duration) *errors.Error {
 	c.c[key] = value{
 		v: v,
-		t: time.Now().Add(c.ttl),
+		t: time.Now().Add(ttl),
 	}
 	return nil
 }
