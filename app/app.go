@@ -3,14 +3,20 @@ package app
 import (
 	"context"
 	"log"
-	cache "messanger/adapters/cache/redis"
-	"messanger/adapters/repository/mysql"
-	"messanger/app/db_conn"
-	"messanger/app/http_server"
-	"messanger/app/redis_conn"
 	"messanger/config"
-	"messanger/controller/httpAPI"
-	"messanger/core/service"
+	"messanger/controller/http"
+	"messanger/data/cache/redis"
+	"messanger/data/repository/mysql"
+	sms "messanger/data/sms/cmd_sms"
+	"messanger/domain/service/auth"
+	"messanger/domain/service/chats"
+	"messanger/domain/service/groups"
+	"messanger/domain/service/messages"
+	"messanger/domain/service/phone"
+	"messanger/domain/service/users"
+	"messanger/pkg/db"
+	"messanger/pkg/http_server"
+	"messanger/pkg/redis"
 	"os"
 )
 
@@ -23,58 +29,53 @@ func Run(cfgPath string) {
 		log.Fatal("get config error: ", err)
 	}
 
-	db, err := db_conn.Connect(cfg.MySQL)
+	DB, err := db.Connect(cfg.MySQL)
 	if err != nil {
 		log.Fatal("database connect error: ", err)
 	}
-	defer db.Close()
+	defer DB.Close()
 
-	redis, err := redis_conn.Connect(cfg.Redis)
+	redis, err := redis.Connect(cfg.Redis)
 	if err != nil {
 		log.Fatal("redis connect error: ", err)
 	}
 	defer redis.Close()
 
-	userRepo := mysql.NewUsers(db)
-	chatsRepo := mysql.NewChats(db)
-	messagesRepo := mysql.NewMessages(db)
+	smsSender := sms.NewCmdSmsAdapter()
+
+	chatsRepo := mysql.NewChats(DB)
+	groupsRepo := mysql.NewGroups(DB)
+	contactsRepo := mysql.NewContacts(DB)
+	userRepo := mysql.NewUsers(DB)
+	messagesRepo := mysql.NewMessages(DB)
 	c := cache.NewCache(redis)
 
-	emailService := service.NewEmailService(cfg.Email)
-	authService := service.NewAuthService(c, userRepo, cfg.AuthService)
-	userService := service.NewUsersService(userRepo, emailService)
-	chatService := service.NewChatService(chatsRepo)
-	messagesService := service.NewMessagesService(messagesRepo, userRepo)
+	phoneConf := phone.NewPhoneService(smsSender, c)
 
-	go func() {
-		for {
-			select {
-			case chatId := <-chatService.OnDeleteChat:
-				if err := messagesService.OnDeleteChat(chatId); err != nil {
-					errorsLogger.Println(err)
-				}
+	authService := auth.NewAuthService(c, userRepo, phoneConf, cfg.AuthService)
+	userService := users.NewUsersService(userRepo, contactsRepo, chatsRepo, phoneConf)
+	chatService := chats.NewChatService(chatsRepo, groupsRepo)
+	groupService := groups.NewGroupService(chatsRepo, groupsRepo)
+	messagesService := messages.NewMessagesService(messagesRepo, chatsRepo)
 
-			case chatId := <-userService.DeleteChat:
-				ctx := context.WithValue(context.Background(), "IsSystemCall", struct{}{})
-				if err := chatService.Delete(ctx, chatId); err != nil {
-					errorsLogger.Println(err)
-				}
-			}
-		}
-	}()
-
-	h := httpAPI.NewHandler(
+	h := http.NewHandler(
 		authService,
 		userService,
 		messagesService,
 		chatService,
-		emailService,
+		groupService,
 		errorsLogger,
 	)
 
 	h.InitRouter()
 
 	server := http_server.NewHttpServer(h, cfg.HttpServer)
+	defer func() {
+		if err := server.Shutdown(context.Background()); err != nil {
+			log.Println("shutdown server error: ", err)
+		}
+	}()
+
 	log.Printf("http://%s/", server.Addr)
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal("http server error: ", err)

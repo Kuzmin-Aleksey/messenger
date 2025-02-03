@@ -7,11 +7,10 @@ import (
 )
 
 type Config struct {
-	HttpServer  *HttpServerConfig   `yaml:"http_server"`
-	AuthService *AuthServiceConfig  `yaml:"auth_service"`
-	Email       *EmailServiceConfig `yaml:"email_service"`
-	Redis       *RedisConfig        `yaml:"redis"`
-	MySQL       *MySQLConfig        `yaml:"mysql"`
+	HttpServer  *HttpServerConfig  `json:"http_server" yaml:"http_server"`
+	AuthService *AuthServiceConfig `json:"auth_service" yaml:"auth_service"`
+	Redis       *RedisConfig       `json:"redis" yaml:"redis"`
+	MySQL       *MySQLConfig       `json:"mysql" yaml:"mysql"`
 }
 
 type HttpServerConfig struct {
@@ -40,20 +39,6 @@ type MySQLConfig struct {
 	Password          string `json:"password" yaml:"password"`
 	Schema            string `json:"schema" yaml:"schema"`
 	ConnectTimeoutSec int    `json:"connect_timeout_sec" yaml:"connect_timeout_sec"`
-}
-
-type EmailServiceConfig struct {
-	TTLMin          int             `json:"ttl_min" yaml:"ttl_min"`
-	TokenSignKey    string          `json:"token_sign_key" yaml:"token_sign_key"`
-	ConfirmEmailURL string          `json:"confirm_email_url" yaml:"confirm_email_url"`
-	SMTP            EmailSMTPConfig `json:"smtp" yaml:"smtp"`
-}
-
-type EmailSMTPConfig struct {
-	Server   string `json:"server" yaml:"server"`
-	Port     int    `json:"port" yaml:"port"`
-	Email    string `json:"email" yaml:"email"`
-	Password string `json:"password" yaml:"password"`
 }
 
 func GetConfig(path string) (*Config, error) {
