@@ -71,6 +71,29 @@ func (h *Handler) DeleteUserFromGroup(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type setUserRoleInGroupRequest struct {
+	Role string `json:"role"`
+}
+
+func (h *Handler) SetUsersRoleInGroup(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		h.writeJSONError(w, errors.New(err, models.ErrParseForm, http.StatusBadRequest))
+		return
+	}
+	req := new(setUserRoleInGroupRequest)
+	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+		h.writeJSONError(w, errors.New(err, models.ErrParseJson, http.StatusBadRequest))
+	}
+
+	groupId, _ := strconv.Atoi(r.Form.Get("group_id"))
+	userId, _ := strconv.Atoi(r.Form.Get("user_id"))
+
+	if err := h.groups.SetUsersRole(r.Context(), groupId, userId, req.Role); err != nil {
+		h.writeJSONError(w, err)
+		return
+	}
+}
+
 func (h *Handler) DeleteGroup(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		h.writeJSONError(w, errors.New(err, models.ErrParseForm, http.StatusBadRequest))

@@ -86,6 +86,7 @@ func (h *Handler) InitRouter() {
 	h.router.HandleFunc("/groups/get-users", h.MwLogging(h.MwWithAuth(h.GetUsersByGroup))).Methods(http.MethodGet)
 	h.router.HandleFunc("/groups/add-user", h.MwLogging(h.MwWithAuth(h.AddUserToGroup))).Methods(http.MethodPost)
 	h.router.HandleFunc("/groups/delete-user", h.MwLogging(h.MwWithAuth(h.DeleteUserFromGroup))).Methods(http.MethodPost)
+	h.router.HandleFunc("/groups/set-role", h.MwLogging(h.MwWithAuth(h.SetUsersRoleInGroup))).Methods(http.MethodPost)
 
 	h.router.HandleFunc("/contacts/add", h.MwLogging(h.MwWithAuth(h.AddContact))).Methods(http.MethodPost)
 	h.router.HandleFunc("/contacts/rename", h.MwLogging(h.MwWithAuth(h.RenameContact))).Methods(http.MethodPost)

@@ -24,7 +24,7 @@ func NewGroupService(chatsRepo ports.ChatsRepo, groupsRepo ports.GroupsRepo) *Gr
 	}
 }
 
-func (s GroupService) NewGroup(ctx context.Context, group *models.Group) (err *errors.Error) {
+func (s *GroupService) NewGroup(ctx context.Context, group *models.Group) (err *errors.Error) {
 	if len(group.Name) == 0 {
 		return errors.New1Msg("group name is missing", http.StatusBadRequest)
 	}
@@ -51,7 +51,7 @@ func (s GroupService) NewGroup(ctx context.Context, group *models.Group) (err *e
 	return nil
 }
 
-func (s GroupService) UpdateGroup(ctx context.Context, groupId int, dto *UpdateGroupDTO) *errors.Error {
+func (s *GroupService) UpdateGroup(ctx context.Context, groupId int, dto *UpdateGroupDTO) *errors.Error {
 	if len(dto.Name) == 0 {
 		return errors.New1Msg("group name is missing", http.StatusBadRequest)
 	}
@@ -75,7 +75,7 @@ func (s GroupService) UpdateGroup(ctx context.Context, groupId int, dto *UpdateG
 	return nil
 }
 
-func (s GroupService) AddUserToGroup(ctx context.Context, groupId int, userId int) (err *errors.Error) {
+func (s *GroupService) AddUserToGroup(ctx context.Context, groupId int, userId int) (err *errors.Error) {
 	if userId == 0 {
 		return errors.New1Msg("userId is missing", http.StatusBadRequest)
 	}
@@ -108,7 +108,7 @@ func (s GroupService) AddUserToGroup(ctx context.Context, groupId int, userId in
 	return nil
 }
 
-func (s GroupService) RemoveUserFromGroup(ctx context.Context, groupId int, userId int) (err *errors.Error) {
+func (s *GroupService) RemoveUserFromGroup(ctx context.Context, groupId int, userId int) (err *errors.Error) {
 	if userId == 0 {
 		return errors.New1Msg("userId is missing", http.StatusBadRequest)
 	}
@@ -160,7 +160,27 @@ func (s GroupService) RemoveUserFromGroup(ctx context.Context, groupId int, user
 	return nil
 }
 
-func (s GroupService) GetUsersByGroup(ctx context.Context, groupId int) ([]GetUsersDTO, *errors.Error) {
+func (s *GroupService) SetUsersRole(ctx context.Context, groupId int, userId int, role string) *errors.Error {
+	if !models.ValidateRole(role) {
+		return errors.New1Msg("invalid role: "+role, http.StatusBadRequest)
+	}
+	actionerId := auth.ExtractUser(ctx)
+	actionerRole, err := s.groupsRepo.GetRole(ctx, actionerId, groupId)
+	if err != nil {
+		return err.Trace()
+	}
+	if actionerRole != models.RoleAdmin {
+		return errors.New(fmt.Sprintf("user (%d) tried set role in group (%d)", actionerId, groupId),
+			models.ErrPermissionDenied, http.StatusForbidden)
+	}
+
+	if err := s.groupsRepo.SetRole(ctx, userId, groupId, role); err != nil {
+		return err.Trace()
+	}
+	return nil
+}
+
+func (s *GroupService) GetUsersByGroup(ctx context.Context, groupId int) ([]GetUsersDTO, *errors.Error) {
 	if groupId == 0 {
 		return nil, errors.New1Msg("groupId is missing", http.StatusBadRequest)
 	}
@@ -193,7 +213,7 @@ func (s GroupService) GetUsersByGroup(ctx context.Context, groupId int) ([]GetUs
 	return resp, nil
 }
 
-func (s GroupService) RemoveGroup(ctx context.Context, groupId int) (err *errors.Error) {
+func (s *GroupService) RemoveGroup(ctx context.Context, groupId int) (err *errors.Error) {
 	actionerId := auth.ExtractUser(ctx)
 	role, err := s.groupsRepo.GetRole(ctx, actionerId, groupId)
 	if err != nil {
