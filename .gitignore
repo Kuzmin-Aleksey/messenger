@@ -3,5 +3,6 @@ config/config.yaml
 .idea
 logs.txt
 data/cache/redis/test_config.go
+.$db.drawio.bkp
 
 docker-compose.yml
