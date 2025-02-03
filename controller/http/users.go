@@ -50,6 +50,7 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) FindUser(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		h.writeJSONError(w, errors.New(err, models.ErrParseForm, http.StatusBadRequest))
+		return
 	}
 	var params users.FindUserDTO
 	params.UserId, _ = strconv.Atoi(r.Form.Get("id"))

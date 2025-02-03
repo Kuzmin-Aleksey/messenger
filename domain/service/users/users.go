@@ -3,7 +3,6 @@ package users
 import (
 	"context"
 	errorsutils "errors"
-	"fmt"
 	"github.com/nyaruka/phonenumbers"
 	"messanger/domain/models"
 	"messanger/domain/ports"
@@ -333,7 +332,6 @@ func parsePhone(phone string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println(num.String(), phonenumbers.Format(num, phonenumbers.E164))
 	if !phonenumbers.IsValidNumber(num) {
 		return "", errorsutils.New("invalid phone number")
 	}
