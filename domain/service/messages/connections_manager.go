@@ -50,7 +50,7 @@ func (s *MessagesService) NewConnectionsManager() *ConnectionsManager {
 	m := &ConnectionsManager{
 		chatToUsers: make(map[int]map[int]*[]Conn),
 		userChats:   make(map[int]UserConnections),
-		chatsGetter: s.userChats,
+		chatsGetter: s.chatsRepo,
 	}
 	s.connManager = m
 

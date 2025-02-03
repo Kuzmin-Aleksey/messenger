@@ -29,7 +29,7 @@ func (s *UsersService) AddToContact(ctx context.Context, dto *CreateContactDTO) 
 		ContactName: dto.Name,
 	}
 
-	if err := s.contactsRepo.Create(contact); err != nil {
+	if err := s.contactsRepo.Create(ctx, contact); err != nil {
 		return err.Trace()
 	}
 
@@ -38,7 +38,7 @@ func (s *UsersService) AddToContact(ctx context.Context, dto *CreateContactDTO) 
 
 func (s *UsersService) GetUserContacts(ctx context.Context) ([]models.Contact, *errors.Error) {
 	userId := auth.ExtractUser(ctx)
-	contacts, err := s.contactsRepo.GetContactsByUser(userId)
+	contacts, err := s.contactsRepo.GetContactsByUser(ctx, userId)
 	if err != nil {
 		return nil, err.Trace()
 	}
@@ -50,7 +50,7 @@ func (s *UsersService) RemoveUserFromContact(ctx context.Context, contactUserId 
 		return errors.New1Msg("missing contact user id", http.StatusBadRequest)
 	}
 	userId := auth.ExtractUser(ctx)
-	if err := s.contactsRepo.Delete(userId, contactUserId); err != nil {
+	if err := s.contactsRepo.Delete(ctx, userId, contactUserId); err != nil {
 		return err.Trace()
 	}
 	return nil
@@ -61,14 +61,14 @@ func (s *UsersService) RenameContact(ctx context.Context, contactUserId int, nam
 		return errors.New1Msg("missing name", http.StatusBadRequest)
 	}
 	userId := auth.ExtractUser(ctx)
-	contact, err := s.contactsRepo.GetContact(userId, contactUserId)
+	contact, err := s.contactsRepo.GetContact(ctx, userId, contactUserId)
 	if err != nil {
 		return err.Trace()
 	}
 	if contact.ContactName == name {
 		return nil
 	}
-	if err := s.contactsRepo.SetContactName(userId, contactUserId, name); err != nil {
+	if err := s.contactsRepo.SetContactName(ctx, userId, contactUserId, name); err != nil {
 		return err.Trace()
 	}
 	return nil

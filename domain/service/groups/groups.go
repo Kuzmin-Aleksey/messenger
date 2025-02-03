@@ -6,6 +6,7 @@ import (
 	"messanger/domain/models"
 	"messanger/domain/ports"
 	"messanger/domain/service/auth"
+	"messanger/pkg/db"
 	"messanger/pkg/errors"
 	"net/http"
 	"slices"
@@ -23,15 +24,23 @@ func NewGroupService(chatsRepo ports.ChatsRepo, groupsRepo ports.GroupsRepo) *Gr
 	}
 }
 
-func (s GroupService) NewGroup(ctx context.Context, group *models.Group) *errors.Error {
+func (s GroupService) NewGroup(ctx context.Context, group *models.Group) (err *errors.Error) {
 	if len(group.Name) == 0 {
 		return errors.New1Msg("group name is missing", http.StatusBadRequest)
 	}
 	adminId := auth.ExtractUser(ctx)
 	chat := &models.Chat{Type: models.ChatTypeGroup}
-	if err := s.chatsRepo.New(ctx, chat, []int{adminId}); err != nil {
+
+	ctx, err = db.WithTx(ctx, s.chatsRepo)
+	if err != nil {
 		return err.Trace()
 	}
+	defer db.CommitOnDefer(ctx, &err)
+
+	if err := s.chatsRepo.New(ctx, chat); err != nil {
+		return err.Trace()
+	}
+
 	group.ChatId = chat.Id
 	if err := s.groupsRepo.New(ctx, group); err != nil {
 		return err.Trace()
@@ -66,7 +75,7 @@ func (s GroupService) UpdateGroup(ctx context.Context, groupId int, dto *UpdateG
 	return nil
 }
 
-func (s GroupService) AddUserToGroup(ctx context.Context, groupId int, userId int) *errors.Error {
+func (s GroupService) AddUserToGroup(ctx context.Context, groupId int, userId int) (err *errors.Error) {
 	if userId == 0 {
 		return errors.New1Msg("userId is missing", http.StatusBadRequest)
 	}
@@ -83,6 +92,13 @@ func (s GroupService) AddUserToGroup(ctx context.Context, groupId int, userId in
 	if err != nil {
 		return err.Trace()
 	}
+
+	ctx, err = db.WithTx(ctx, s.chatsRepo)
+	if err != nil {
+		return err.Trace()
+	}
+	defer db.CommitOnDefer(ctx, &err)
+
 	if err := s.chatsRepo.AddUserToChat(ctx, group.ChatId, userId); err != nil {
 		return err.Trace()
 	}
@@ -92,7 +108,7 @@ func (s GroupService) AddUserToGroup(ctx context.Context, groupId int, userId in
 	return nil
 }
 
-func (s GroupService) RemoveUserFromGroup(ctx context.Context, groupId int, userId int) *errors.Error {
+func (s GroupService) RemoveUserFromGroup(ctx context.Context, groupId int, userId int) (err *errors.Error) {
 	if userId == 0 {
 		return errors.New1Msg("userId is missing", http.StatusBadRequest)
 	}
@@ -121,6 +137,12 @@ func (s GroupService) RemoveUserFromGroup(ctx context.Context, groupId int, user
 		return errors.New(fmt.Sprintf("admin (%d) tried remove admin (%d) from group (%d)", actionerId, userId, groupId),
 			models.ErrPermissionDenied, http.StatusForbidden)
 	}
+
+	ctx, err = db.WithTx(ctx, s.chatsRepo)
+	if err != nil {
+		return err.Trace()
+	}
+	defer db.CommitOnDefer(ctx, &err)
 
 	if err := s.chatsRepo.RemoveUserFromChat(ctx, group.ChatId, userId); err != nil {
 		return err.Trace()
@@ -186,11 +208,9 @@ func (s GroupService) RemoveGroup(ctx context.Context, groupId int) *errors.Erro
 	if err != nil {
 		return err.Trace()
 	}
-	if err := s.groupsRepo.Delete(ctx, groupId); err != nil {
-		return err.Trace()
-	}
 	if err := s.chatsRepo.Delete(ctx, group.ChatId); err != nil {
 		return err.Trace()
 	}
+	// trigger delete group
 	return nil
 }

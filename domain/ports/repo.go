@@ -24,11 +24,11 @@ type UsersRepo interface {
 }
 
 type ContactsRepo interface {
-	Create(contact *models.Contact) *errors.Error
-	SetContactName(userid, contactId int, name string) *errors.Error
-	GetContactsByUser(userId int) ([]models.Contact, *errors.Error)
-	GetContact(userId, contactId int) (*models.Contact, *errors.Error)
-	Delete(userId, contactId int) (e *errors.Error)
+	Create(ctx context.Context, contact *models.Contact) *errors.Error
+	SetContactName(ctx context.Context, userid, contactId int, name string) *errors.Error
+	GetContactsByUser(ctx context.Context, userId int) ([]models.Contact, *errors.Error)
+	GetContact(ctx context.Context, userId, contactId int) (*models.Contact, *errors.Error)
+	Delete(ctx context.Context, userId, contactId int) (e *errors.Error)
 }
 
 type GroupsRepo interface {
@@ -44,9 +44,11 @@ type GroupsRepo interface {
 }
 
 type ChatsRepo interface {
-	New(ctx context.Context, chat *models.Chat, users []int) *errors.Error
+	New(ctx context.Context, chat *models.Chat) *errors.Error
+	UpdateTime(ctx context.Context, chatId int, time time.Time) *errors.Error
 	AddUserToChat(ctx context.Context, id int, userId int) *errors.Error
 	RemoveUserFromChat(ctx context.Context, id int, userId int) *errors.Error
+	CheckUserInChat(ctx context.Context, userId int, chatId int) (bool, *errors.Error)
 	CountUsersInChat(ctx context.Context, id int) (int, *errors.Error)
 	GetByUserId(ctx context.Context, userId int) ([]models.Chat, *errors.Error)
 	GetChatListByUser(ctx context.Context, userId int) ([]int, *errors.Error)

@@ -7,6 +7,7 @@ import (
 	"messanger/domain/models"
 	"messanger/domain/ports"
 	"messanger/domain/service/auth"
+	"messanger/pkg/db"
 	"messanger/pkg/errors"
 	"net/http"
 	"sync"
@@ -44,7 +45,7 @@ func NewUsersService(
 	return s
 }
 
-func (s *UsersService) CreateUser(ctx context.Context, dto *CreateUserDTO) *errors.Error {
+func (s *UsersService) CreateUser(ctx context.Context, dto *CreateUserDTO) (err *errors.Error) {
 	if len(dto.Name) == 0 || len(dto.RealName) == 0 || len(dto.Password) == 0 || len(dto.Phone) == 0 {
 		return errors.New1Msg("invalid user info", http.StatusBadRequest)
 	}
@@ -75,6 +76,11 @@ func (s *UsersService) CreateUser(ctx context.Context, dto *CreateUserDTO) *erro
 		LastOnline:     time.Now(),
 		Confirmed:      false,
 	}
+	ctx, err = db.WithTx(ctx, s.usersRepo)
+	if err != nil {
+		return err.Trace()
+	}
+	defer db.CommitOnDefer(ctx, &err)
 
 	if err := s.usersRepo.New(ctx, user); err != nil {
 		s.createUserMu.Unlock()
@@ -98,7 +104,13 @@ func (s *UsersService) ConfirmPhone(ctx context.Context, code string) *errors.Er
 	return nil
 }
 
-func (s *UsersService) UpdateUser(ctx context.Context, dto *UpdateUserDTO) *errors.Error {
+func (s *UsersService) UpdateUser(ctx context.Context, dto *UpdateUserDTO) (err *errors.Error) {
+	ctx, err = db.WithTx(ctx, s.usersRepo)
+	if err != nil {
+		return err.Trace()
+	}
+	defer db.CommitOnDefer(ctx, &err)
+
 	var isUpdating bool
 	if len(dto.RealName) != 0 {
 		if err := s.UpdateRealName(ctx, dto.RealName); err != nil {
@@ -222,15 +234,27 @@ func (s *UsersService) checkUsernameExist(ctx context.Context, name string) *err
 	return nil
 }
 
-func (s *UsersService) CreateChatWithUser(ctx context.Context, userId int) (*models.Chat, *errors.Error) {
+func (s *UsersService) CreateChatWithUser(ctx context.Context, userId int) (chat *models.Chat, err *errors.Error) {
 	actionerId := auth.ExtractUser(ctx)
-
-	chat := &models.Chat{
+	chat = &models.Chat{
 		Type: models.ChatTypeUser,
 	}
-	if err := s.chatsRepo.New(ctx, chat, []int{actionerId, userId}); err != nil {
+	ctx, err = db.WithTx(ctx, s.chatsRepo)
+	if err != nil {
 		return nil, err.Trace()
 	}
+	defer db.CommitOnDefer(ctx, &err)
+
+	if err := s.chatsRepo.New(ctx, chat); err != nil {
+		return nil, err.Trace()
+	}
+	if err := s.chatsRepo.AddUserToChat(ctx, chat.Id, actionerId); err != nil {
+		return nil, err.Trace()
+	}
+	if err := s.chatsRepo.AddUserToChat(ctx, chat.Id, userId); err != nil {
+		return nil, err.Trace()
+	}
+
 	return chat, nil
 }
 
@@ -264,7 +288,7 @@ func (s *UsersService) FindUser(ctx context.Context, dto *FindUserDTO) (*UserRes
 	}
 
 	if !user.CanFindByPhone {
-		if contact, err := s.contactsRepo.GetContact(actionerId, user.Id); err != nil {
+		if contact, err := s.contactsRepo.GetContact(ctx, actionerId, user.Id); err != nil {
 			if err.Code != http.StatusNotFound {
 				return nil, err.Trace()
 			}
@@ -319,8 +343,32 @@ func (s *UsersService) FindByName(ctx context.Context, name string) (*models.Use
 	return user, nil
 }
 
-func (s *UsersService) DeleteUser(ctx context.Context) *errors.Error {
+func (s *UsersService) DeleteUser(ctx context.Context) (err *errors.Error) {
 	userId := auth.ExtractUser(ctx)
+
+	ctx, err = db.WithTx(ctx, s.usersRepo)
+	if err != nil {
+		return err.Trace()
+	}
+	defer db.CommitOnDefer(ctx, &err)
+
+	chats, err := s.chatsRepo.GetByUserId(ctx, userId)
+	if err != nil {
+		return err.Trace()
+	}
+
+	for _, chat := range chats {
+		count, err := s.chatsRepo.CountUsersInChat(ctx, chat.Id)
+		if err != nil {
+			return err.Trace()
+		}
+		if count == 1 {
+			if err := s.chatsRepo.Delete(ctx, chat.Id); err != nil {
+				return err.Trace()
+			}
+		}
+	}
+
 	if err := s.usersRepo.Delete(ctx, userId); err != nil {
 		return err.Trace()
 	}

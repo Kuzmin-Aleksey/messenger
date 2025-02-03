@@ -12,15 +12,15 @@ import (
 )
 
 type Users struct {
-	db *sql.DB
+	DB
 }
 
-func NewUsers(db *sql.DB) *Users {
+func NewUsers(db DB) *Users {
 	return &Users{db}
 }
 
 func (u *Users) New(ctx context.Context, user *models.User) *errors.Error {
-	res, err := u.db.ExecContext(ctx, "INSERT INTO users (phone, password, name, real_namel) VALUES (?, ?, ?, ?)",
+	res, err := u.DB.ExecContext(ctx, "INSERT INTO users (phone, password, name, real_namel) VALUES (?, ?, ?, ?)",
 		user.Phone, hashPassword(user.Password), user.Name, user.RealName)
 
 	if err != nil {
@@ -32,35 +32,35 @@ func (u *Users) New(ctx context.Context, user *models.User) *errors.Error {
 }
 
 func (u *Users) SetConfirm(ctx context.Context, userId int, v bool) *errors.Error {
-	if _, err := u.db.ExecContext(ctx, "UPDATE users SET confirmed = ? WHERE id = ?", v, userId); err != nil {
+	if _, err := u.DB.ExecContext(ctx, "UPDATE users SET confirmed = ? WHERE id = ?", v, userId); err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
 }
 
 func (u *Users) UpdateUsername(ctx context.Context, userId int, name string) *errors.Error {
-	if _, err := u.db.ExecContext(ctx, "UPDATE users SET name = ? WHERE id = ?", name, userId); err != nil {
+	if _, err := u.DB.ExecContext(ctx, "UPDATE users SET name = ? WHERE id = ?", name, userId); err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
 }
 
 func (u *Users) UpdateRealName(ctx context.Context, userId int, realName string) *errors.Error {
-	if _, err := u.db.ExecContext(ctx, "UPDATE users SET real_namel = ? WHERE id = ?", realName, userId); err != nil {
+	if _, err := u.DB.ExecContext(ctx, "UPDATE users SET real_namel = ? WHERE id = ?", realName, userId); err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
 }
 
 func (u *Users) UpdatePassword(ctx context.Context, userId int, password string) *errors.Error {
-	if _, err := u.db.ExecContext(ctx, "UPDATE users SET password = ? WHERE id = ?", hashPassword(password), userId); err != nil {
+	if _, err := u.DB.ExecContext(ctx, "UPDATE users SET password = ? WHERE id = ?", hashPassword(password), userId); err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
 }
 
 func (u *Users) UpdatePhone(ctx context.Context, userId int, phone string) *errors.Error {
-	if _, err := u.db.ExecContext(ctx, "UPDATE users SET phone = ? WHERE id = ?", phone, userId); err != nil {
+	if _, err := u.DB.ExecContext(ctx, "UPDATE users SET phone = ? WHERE id = ?", phone, userId); err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
@@ -68,7 +68,7 @@ func (u *Users) UpdatePhone(ctx context.Context, userId int, phone string) *erro
 
 func (u *Users) GetById(ctx context.Context, id int) (*models.User, *errors.Error) {
 	var user models.User
-	if err := user.ScanRow(u.db.QueryRowContext(ctx, "SELECT * FROM users WHERE id = ?", id)); err != nil {
+	if err := user.ScanRow(u.DB.QueryRowContext(ctx, "SELECT * FROM users WHERE id = ?", id)); err != nil {
 		if errorsutils.Is(err, sql.ErrNoRows) {
 			return nil, errors.New(err, "user not found", http.StatusNotFound)
 		}
@@ -79,7 +79,7 @@ func (u *Users) GetById(ctx context.Context, id int) (*models.User, *errors.Erro
 
 func (u *Users) FindByPhone(ctx context.Context, phone string) (*models.User, *errors.Error) {
 	var user models.User
-	if err := user.ScanRow(u.db.QueryRowContext(ctx, "SELECT * FROM users WHERE phone = ?", phone)); err != nil {
+	if err := user.ScanRow(u.DB.QueryRowContext(ctx, "SELECT * FROM users WHERE phone = ?", phone)); err != nil {
 		if errorsutils.Is(err, sql.ErrNoRows) {
 			return nil, errors.New(err, "user not found", http.StatusNotFound)
 		}
@@ -90,7 +90,7 @@ func (u *Users) FindByPhone(ctx context.Context, phone string) (*models.User, *e
 
 func (u *Users) FindByName(ctx context.Context, name string) (*models.User, *errors.Error) {
 	var user models.User
-	if err := user.ScanRow(u.db.QueryRowContext(ctx, "SELECT * FROM users WHERE name = ?", name)); err != nil {
+	if err := user.ScanRow(u.DB.QueryRowContext(ctx, "SELECT * FROM users WHERE name = ?", name)); err != nil {
 		if errorsutils.Is(err, sql.ErrNoRows) {
 			return nil, errors.New(err, "user not found", http.StatusNotFound)
 		}
@@ -101,7 +101,7 @@ func (u *Users) FindByName(ctx context.Context, name string) (*models.User, *err
 
 func (u *Users) GetByPhoneWithPass(ctx context.Context, phone, password string) (*models.User, *errors.Error) {
 	user := new(models.User)
-	if err := user.ScanRow(u.db.QueryRowContext(ctx, "SELECT * FROM users WHERE phone = ? AND password = ? AND confirmed",
+	if err := user.ScanRow(u.DB.QueryRowContext(ctx, "SELECT * FROM users WHERE phone = ? AND password = ? AND confirmed",
 		phone, hashPassword(password))); err != nil {
 		if errorsutils.Is(err, sql.ErrNoRows) {
 			return nil, errors.New(err, "invalid phone or password", http.StatusUnauthorized)
@@ -113,7 +113,7 @@ func (u *Users) GetByPhoneWithPass(ctx context.Context, phone, password string) 
 
 func (u *Users) GetByIdWithPass(ctx context.Context, id int, password string) (*models.User, *errors.Error) {
 	user := new(models.User)
-	if err := user.ScanRow(u.db.QueryRowContext(ctx, "SELECT * FROM users WHERE id = ? AND password = ? AND confirmed",
+	if err := user.ScanRow(u.DB.QueryRowContext(ctx, "SELECT * FROM users WHERE id = ? AND password = ? AND confirmed",
 		id, hashPassword(password))); err != nil {
 		if errorsutils.Is(err, sql.ErrNoRows) {
 			return nil, errors.New(err, "invalid password", http.StatusUnauthorized)
@@ -124,7 +124,7 @@ func (u *Users) GetByIdWithPass(ctx context.Context, id int, password string) (*
 }
 
 func (u *Users) Delete(ctx context.Context, id int) (e *errors.Error) {
-	if _, err := u.db.ExecContext(ctx, "DELETE FROM users WHERE id = ?", id); err != nil {
+	if _, err := u.DB.ExecContext(ctx, "DELETE FROM users WHERE id = ?", id); err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
@@ -132,7 +132,7 @@ func (u *Users) Delete(ctx context.Context, id int) (e *errors.Error) {
 
 func (u *Users) GetLastOnline(ctx context.Context, userId int) (time.Time, *errors.Error) {
 	var t time.Time
-	if err := u.db.QueryRowContext(ctx, "SELECT last_online FROM users WHERE id = ?", userId).Scan(&t); err != nil {
+	if err := u.DB.QueryRowContext(ctx, "SELECT last_online FROM users WHERE id = ?", userId).Scan(&t); err != nil {
 		if errorsutils.Is(err, sql.ErrNoRows) {
 			return t, errors.New(err, "user not found", http.StatusNotFound)
 		}

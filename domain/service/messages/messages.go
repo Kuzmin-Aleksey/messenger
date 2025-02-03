@@ -6,32 +6,28 @@ import (
 	"messanger/domain/models"
 	"messanger/domain/ports"
 	"messanger/domain/service/auth"
+	"messanger/pkg/db"
 	"messanger/pkg/errors"
 	"net/http"
 	"time"
 )
 
-type UserChats interface {
-	GetChatListByUser(ctx context.Context, userId int) ([]int, *errors.Error)
-	CheckUserInChat(ctx context.Context, userId int, chatId int) (bool, *errors.Error)
-}
-
 type MessagesService struct {
 	repo        ports.MessagesRepo
-	userChats   UserChats
+	chatsRepo   ports.ChatsRepo
 	connManager *ConnectionsManager
 }
 
-func NewMessagesService(repo ports.MessagesRepo, userChecker UserChats) *MessagesService {
+func NewMessagesService(repo ports.MessagesRepo, chatsRepo ports.ChatsRepo) *MessagesService {
 	return &MessagesService{
 		repo:      repo,
-		userChats: userChecker,
+		chatsRepo: chatsRepo,
 	}
 }
 
-func (s *MessagesService) CreateMessage(ctx context.Context, m *models.Message) *errors.Error {
+func (s *MessagesService) CreateMessage(ctx context.Context, m *models.Message) (err *errors.Error) {
 	userId := auth.ExtractUser(ctx)
-	ok, err := s.userChats.CheckUserInChat(ctx, userId, m.ChatId)
+	ok, err := s.chatsRepo.CheckUserInChat(ctx, userId, m.ChatId)
 	if err != nil {
 		return err.Trace()
 	}
@@ -41,7 +37,17 @@ func (s *MessagesService) CreateMessage(ctx context.Context, m *models.Message) 
 	}
 	m.UserId = userId
 	m.Time = time.Now().UTC()
+
+	ctx, err = db.WithTx(ctx, s.repo)
+	if err != nil {
+		return err.Trace()
+	}
+	defer db.CommitOnDefer(ctx, &err)
+
 	if err := s.repo.New(ctx, m); err != nil {
+		return err.Trace()
+	}
+	if err := s.chatsRepo.UpdateTime(ctx, m.ChatId, m.Time); err != nil {
 		return err.Trace()
 	}
 
@@ -90,12 +96,32 @@ func (s *MessagesService) DeleteMessage(ctx context.Context, id int) *errors.Err
 		return errors.New(fmt.Sprintf("user (%d) tried to delete a message (%d)", userId, id),
 			models.ErrPermissionDenied, http.StatusForbidden)
 	}
+
+	ctx, err = db.WithTx(ctx, s.repo)
+	if err != nil {
+		return err.Trace()
+	}
+	defer db.CommitOnDefer(ctx, &err)
+
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return err.Trace()
 	}
 	if s.connManager != nil {
 		go s.connManager.onDeleteMessage(id, m.ChatId)
 	}
+
+	lastMessId, err := s.repo.GetMinMassageIdInChat(ctx, m.ChatId)
+	if err != nil {
+		return err.Trace()
+	}
+	lastMess, err := s.repo.GetById(ctx, lastMessId)
+	if err != nil {
+		return err.Trace()
+	}
+	if err := s.chatsRepo.UpdateTime(ctx, m.ChatId, lastMess.Time); err != nil {
+		return err.Trace()
+	}
+
 	return nil
 }
 
@@ -104,7 +130,7 @@ func (s *MessagesService) GetFromChat(ctx context.Context, dto *GetMessagesDTO) 
 		return nil, errors.New1Msg("field count is missing", http.StatusBadRequest)
 	}
 	userId := auth.ExtractUser(ctx)
-	ok, err := s.userChats.CheckUserInChat(ctx, userId, dto.ChatId)
+	ok, err := s.chatsRepo.CheckUserInChat(ctx, userId, dto.ChatId)
 	if err != nil {
 		return nil, err.Trace()
 	}
