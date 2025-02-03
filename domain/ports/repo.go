@@ -14,6 +14,7 @@ type UsersRepo interface {
 	UpdateRealName(ctx context.Context, userId int, realName string) *errors.Error
 	UpdatePassword(ctx context.Context, userId int, password string) *errors.Error
 	UpdatePhone(ctx context.Context, userId int, phone string) *errors.Error
+	UpdateLastOnlineTime(ctx context.Context, userId int, time time.Time) *errors.Error
 	GetLastOnline(ctx context.Context, userId int) (time.Time, *errors.Error)
 	GetById(ctx context.Context, id int) (*models.User, *errors.Error)
 	FindByPhone(ctx context.Context, phone string) (*models.User, *errors.Error)

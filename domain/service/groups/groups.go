@@ -193,7 +193,7 @@ func (s GroupService) GetUsersByGroup(ctx context.Context, groupId int) ([]GetUs
 	return resp, nil
 }
 
-func (s GroupService) RemoveGroup(ctx context.Context, groupId int) *errors.Error {
+func (s GroupService) RemoveGroup(ctx context.Context, groupId int) (err *errors.Error) {
 	actionerId := auth.ExtractUser(ctx)
 	role, err := s.groupsRepo.GetRole(ctx, actionerId, groupId)
 	if err != nil {
@@ -208,9 +208,18 @@ func (s GroupService) RemoveGroup(ctx context.Context, groupId int) *errors.Erro
 	if err != nil {
 		return err.Trace()
 	}
+
+	ctx, err = db.WithTx(ctx, s.chatsRepo)
+	if err != nil {
+		return err.Trace()
+	}
+	defer db.CommitOnDefer(ctx, &err)
+
+	if err := s.groupsRepo.Delete(ctx, group.Id); err != nil {
+		return err.Trace()
+	}
 	if err := s.chatsRepo.Delete(ctx, group.ChatId); err != nil {
 		return err.Trace()
 	}
-	// trigger delete group
 	return nil
 }

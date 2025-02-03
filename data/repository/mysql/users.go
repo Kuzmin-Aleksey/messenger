@@ -66,6 +66,13 @@ func (u *Users) UpdatePhone(ctx context.Context, userId int, phone string) *erro
 	return nil
 }
 
+func (u *Users) UpdateLastOnlineTime(ctx context.Context, userId int, time time.Time) *errors.Error {
+	if _, err := u.DB.ExecContext(ctx, "UPDATE users SET last_online = ? WHERE id = ?", time, userId); err != nil {
+		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
+	}
+	return nil
+}
+
 func (u *Users) GetById(ctx context.Context, id int) (*models.User, *errors.Error) {
 	var user models.User
 	if err := user.ScanRow(u.DB.QueryRowContext(ctx, "SELECT * FROM users WHERE id = ?", id)); err != nil {
