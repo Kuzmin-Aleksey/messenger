@@ -12,6 +12,10 @@ type ChatsGetter interface {
 	GetChatListByUser(ctx context.Context, userId int) ([]int, *errors.Error)
 }
 
+type UserLastOnlineUpdater interface {
+	UpdateLastOnlineTime(ctx context.Context, userId int, time time.Time) *errors.Error
+}
+
 type Conn interface {
 	Send(*Event) (ok bool)
 	Ping() (ok bool)
@@ -37,10 +41,11 @@ type Event struct {
 }
 
 type ConnectionsManager struct {
-	chatToUsers map[int]map[int]*[]Conn
-	userChats   map[int]UserConnections
-	chatsGetter ChatsGetter
-	mu          sync.RWMutex
+	chatToUsers  map[int]map[int]*[]Conn
+	userChats    map[int]UserConnections
+	chatsGetter  ChatsGetter
+	usersUpdater UserLastOnlineUpdater
+	mu           sync.RWMutex
 }
 
 func (s *MessagesService) NewConnectionsManager() *ConnectionsManager {
@@ -48,9 +53,10 @@ func (s *MessagesService) NewConnectionsManager() *ConnectionsManager {
 		return s.connManager
 	}
 	m := &ConnectionsManager{
-		chatToUsers: make(map[int]map[int]*[]Conn),
-		userChats:   make(map[int]UserConnections),
-		chatsGetter: s.chatsRepo,
+		chatToUsers:  make(map[int]map[int]*[]Conn),
+		userChats:    make(map[int]UserConnections),
+		chatsGetter:  s.chatsRepo,
+		usersUpdater: s.usersRepo,
 	}
 	s.connManager = m
 
@@ -111,10 +117,8 @@ func (m *ConnectionsManager) removeConn(userId int, i int) {
 		*m.userChats[userId].connections = append((*m.userChats[userId].connections)[:i], (*m.userChats[userId].connections)[i+1:]...)
 		return
 	}
-	chats := m.userChats[userId].listenChats
-	delete(m.userChats, userId)
 
-	for _, chatId := range chats {
+	for _, chatId := range m.userChats[userId].listenChats {
 		delete(m.chatToUsers[chatId], userId)
 		if len(m.chatToUsers[chatId]) == 0 {
 			delete(m.chatToUsers, chatId)
@@ -122,7 +126,7 @@ func (m *ConnectionsManager) removeConn(userId int, i int) {
 	}
 	delete(m.userChats, userId)
 
-	// todo - update last online time
+	go m.usersUpdater.UpdateLastOnlineTime(context.Background(), userId, time.Now())
 }
 
 func (m *ConnectionsManager) CheckOnlineList(usersId []int) []bool {

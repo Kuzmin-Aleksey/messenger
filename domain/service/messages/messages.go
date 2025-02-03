@@ -15,6 +15,7 @@ import (
 type MessagesService struct {
 	repo        ports.MessagesRepo
 	chatsRepo   ports.ChatsRepo
+	usersRepo   ports.UsersRepo
 	connManager *ConnectionsManager
 }
 
