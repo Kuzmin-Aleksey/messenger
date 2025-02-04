@@ -153,5 +153,8 @@ func (c *Chats) Delete(ctx context.Context, id int) (e *errors.Error) {
 	if _, err := c.DB.ExecContext(ctx, "DELETE FROM chats WHERE id = ?", id); err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
+	if _, err := c.DB.ExecContext(ctx, "DELETE FROM user_2_chat WHERE chat_id = ?", id); err != nil {
+		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
+	}
 	return nil
 }

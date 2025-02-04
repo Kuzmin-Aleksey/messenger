@@ -134,6 +134,9 @@ func (u *Users) Delete(ctx context.Context, id int) (e *errors.Error) {
 	if _, err := u.DB.ExecContext(ctx, "DELETE FROM users WHERE id = ?", id); err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
+	if _, err := u.DB.ExecContext(ctx, "DELETE FROM user_2_chat WHERE user_id = ?", id); err != nil {
+		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
+	}
 	return nil
 }
 

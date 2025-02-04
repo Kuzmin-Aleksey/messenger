@@ -27,11 +27,9 @@ type UserConnections struct {
 }
 
 const (
-	EventTypeCreate  = "create"
-	EventTypeUpdate  = "update"
-	EventTypeDelete  = "delete"
-	EventTypeOnline  = "user_online"
-	EventTypeOffline = "user_offline"
+	EventTypeCreate = "create"
+	EventTypeUpdate = "update"
+	EventTypeDelete = "delete"
 )
 
 type Event struct {
