@@ -48,20 +48,30 @@ func Trace(err error) error {
 }
 
 func getTrace(skip int) string {
-	_, f, l, _ := runtime.Caller(skip)
-	return trimPath(f) + ":" + strconv.Itoa(l)
+	pc, f, l, _ := runtime.Caller(skip)
+	callerFunc := runtime.FuncForPC(pc)
+	callerFunc.Name()
+	return trimPath(f) + ":" + strconv.Itoa(l) + " " + trimFuncPath(callerFunc.Name())
 }
 
 func trimPath(path string) string {
-	const slash uint8 = 47
 	s := false
 
 	for i := len(path) - 1; i != 0; i-- {
-		if path[i] == slash {
+		if path[i] == '/' {
 			if s {
 				return path[i:]
 			}
 			s = true
+		}
+	}
+	return path
+}
+
+func trimFuncPath(path string) string {
+	for i := len(path) - 1; i != 0; i-- {
+		if path[i] == '.' {
+			return path[i:]
 		}
 	}
 	return path
