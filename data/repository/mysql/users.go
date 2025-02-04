@@ -20,8 +20,8 @@ func NewUsers(db DB) *Users {
 }
 
 func (u *Users) New(ctx context.Context, user *models.User) *errors.Error {
-	res, err := u.DB.ExecContext(ctx, "INSERT INTO users (phone, password, name, real_namel) VALUES (?, ?, ?, ?)",
-		user.Phone, hashPassword(user.Password), user.Name, user.RealName)
+	res, err := u.DB.ExecContext(ctx, "INSERT INTO users (phone, password, name, real_namel, show_phone) VALUES (?, ?, ?, ?, ?)",
+		user.Phone, hashPassword(user.Password), user.Name, user.RealName, user.ShowPhone)
 
 	if err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
@@ -82,6 +82,13 @@ func (u *Users) GetById(ctx context.Context, id int) (*models.User, *errors.Erro
 		return nil, errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return &user, nil
+}
+
+func (u *Users) SetShowPhone(ctx context.Context, userId int, v bool) *errors.Error {
+	if _, err := u.DB.ExecContext(ctx, "UPDATE users SET show_phone = ? WHERE id = ?", v, userId); err != nil {
+		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
+	}
+	return nil
 }
 
 func (u *Users) FindByPhone(ctx context.Context, phone string) (*models.User, *errors.Error) {

@@ -57,24 +57,23 @@ func (s *UsersService) CreateUser(ctx context.Context, dto *CreateUserDTO) (err 
 	}
 
 	s.createUserMu.Lock()
+	defer s.createUserMu.Unlock()
 
 	if err := s.checkPhoneExist(ctx, dto.Phone); err != nil {
-		s.createUserMu.Unlock()
 		return err.Trace()
 	}
 	if err := s.checkUsernameExist(ctx, dto.Name); err != nil {
-		s.createUserMu.Unlock()
 		return err.Trace()
 	}
 
 	user := &models.User{
-		Phone:          dto.Phone,
-		Password:       dto.Password,
-		Name:           dto.Name,
-		RealName:       dto.RealName,
-		CanFindByPhone: true,
-		LastOnline:     time.Now(),
-		Confirmed:      false,
+		Phone:      dto.Phone,
+		Password:   dto.Password,
+		Name:       dto.Name,
+		RealName:   dto.RealName,
+		ShowPhone:  true,
+		LastOnline: time.Now(),
+		Confirmed:  false,
 	}
 	ctx, err = db.WithTx(ctx, s.usersRepo)
 	if err != nil {
@@ -83,10 +82,8 @@ func (s *UsersService) CreateUser(ctx context.Context, dto *CreateUserDTO) (err 
 	defer db.CommitOnDefer(ctx, &err)
 
 	if err := s.usersRepo.New(ctx, user); err != nil {
-		s.createUserMu.Unlock()
 		return err.Trace()
 	}
-	s.createUserMu.Unlock()
 	if err := s.phoneConf.ToConfirming(ctx, user.Id, user.Phone); err != nil {
 		return err.Trace()
 	}
@@ -258,9 +255,18 @@ func (s *UsersService) CreateChatWithUser(ctx context.Context, userId int) (chat
 	return chat, nil
 }
 
+func (s *UsersService) SetShowPhone(ctx context.Context, v bool) *errors.Error {
+	userId := auth.ExtractUser(ctx)
+	if err := s.usersRepo.SetShowPhone(ctx, userId, v); err != nil {
+		return err.Trace()
+	}
+	return nil
+}
+
 func (s *UsersService) FindUser(ctx context.Context, dto *FindUserDTO) (*UserResponseDTO, *errors.Error) {
 	var user *models.User
 	var err *errors.Error
+	var foundByPhone bool
 
 	if dto.UserId != 0 {
 		user, err = s.GetById(ctx, dto.UserId)
@@ -268,6 +274,7 @@ func (s *UsersService) FindUser(ctx context.Context, dto *FindUserDTO) (*UserRes
 		user, err = s.FindByName(ctx, dto.Username)
 	} else if len(dto.Phone) != 0 {
 		user, err = s.FindByPhone(ctx, dto.Phone)
+		foundByPhone = true
 	} else {
 		return nil, errors.New1Msg("all fields is null", http.StatusBadRequest)
 	}
@@ -277,26 +284,30 @@ func (s *UsersService) FindUser(ctx context.Context, dto *FindUserDTO) (*UserRes
 
 	resp := &UserResponseDTO{
 		Id:       user.Id,
-		Phone:    user.Phone,
 		Name:     user.Name,
 		RealName: user.RealName,
 	}
 
 	actionerId := auth.ExtractUser(ctx)
 	if actionerId == user.Id {
+		resp.Phone = user.Phone
+		resp.ShowPhone = user.ShowPhone
 		return resp, nil
 	}
 
-	if !user.CanFindByPhone {
-		if contact, err := s.contactsRepo.GetContact(ctx, actionerId, user.Id); err != nil {
-			if err.Code != http.StatusNotFound {
-				return nil, err.Trace()
-			}
-			user.Phone = ""
-		} else {
-			resp.ContactName = contact.ContactName
-		}
+	if foundByPhone || user.ShowPhone {
+		resp.Phone = user.Phone
 	}
+
+	if contact, err := s.contactsRepo.GetContact(ctx, actionerId, user.Id); err != nil {
+		if err.Code != http.StatusNotFound {
+			return nil, err.Trace()
+		}
+	} else {
+		resp.Phone = user.Phone
+		resp.ContactName = contact.ContactName
+	}
+
 	return resp, nil
 }
 
@@ -331,7 +342,6 @@ func (s *UsersService) FindByPhone(ctx context.Context, phoneNum string) (*model
 	if err != nil {
 		return nil, err.Trace()
 	}
-
 	return user, nil
 }
 

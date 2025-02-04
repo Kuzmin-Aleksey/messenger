@@ -65,6 +65,21 @@ func (h *Handler) FindUser(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, user)
 }
 
+func (h *Handler) SetShowPhone(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		h.writeJSONError(w, errors.New(err, models.ErrParseForm, http.StatusBadRequest))
+		return
+	}
+	v, err := strconv.ParseBool(r.Form.Get("v"))
+	if err != nil {
+		h.writeJSONError(w, errors.New(err, "invalid value", http.StatusBadRequest))
+		return
+	}
+	if err := h.users.SetShowPhone(r.Context(), v); err != nil {
+		h.writeJSONError(w, err)
+	}
+}
+
 func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	if err := h.users.DeleteUser(r.Context()); err != nil {
 		h.writeJSONError(w, err)

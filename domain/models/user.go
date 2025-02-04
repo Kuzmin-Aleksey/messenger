@@ -6,14 +6,14 @@ import (
 )
 
 type User struct {
-	Id             int       `json:"id"`
-	Phone          string    `json:"phone,omitempty"`
-	Password       string    `json:"password,omitempty"`
-	Name           string    `json:"name"`
-	RealName       string    `json:"real_name"`
-	CanFindByPhone bool      `json:"can_find_by_phone"`
-	LastOnline     time.Time `json:"last_online"`
-	Confirmed      bool      `json:"confirming"`
+	Id         int       `json:"id"`
+	Phone      string    `json:"phone,omitempty"`
+	Password   string    `json:"password,omitempty"`
+	Name       string    `json:"name"`
+	RealName   string    `json:"real_name"`
+	ShowPhone  bool      `json:"show_phone"`
+	LastOnline time.Time `json:"last_online"`
+	Confirmed  bool      `json:"confirming"`
 }
 
 func (u *User) ScanRow(row *sql.Row) error {
@@ -23,7 +23,7 @@ func (u *User) ScanRow(row *sql.Row) error {
 		&u.Password,
 		&u.Name,
 		&u.RealName,
-		&u.CanFindByPhone,
+		&u.ShowPhone,
 		&u.LastOnline,
 		&u.Confirmed,
 	)

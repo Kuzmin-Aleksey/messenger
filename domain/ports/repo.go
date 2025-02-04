@@ -12,6 +12,7 @@ type UsersRepo interface {
 	SetConfirm(ctx context.Context, userId int, v bool) *errors.Error
 	UpdateUsername(ctx context.Context, userId int, name string) *errors.Error
 	UpdateRealName(ctx context.Context, userId int, realName string) *errors.Error
+	SetShowPhone(ctx context.Context, userId int, v bool) *errors.Error
 	UpdatePassword(ctx context.Context, userId int, password string) *errors.Error
 	UpdatePhone(ctx context.Context, userId int, phone string) *errors.Error
 	UpdateLastOnlineTime(ctx context.Context, userId int, time time.Time) *errors.Error

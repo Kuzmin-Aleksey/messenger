@@ -27,7 +27,7 @@ type UserResponseDTO struct {
 	Name        string `json:"username,omitempty"`
 	RealName    string `json:"real_name"`
 	ContactName string `json:"contact_name,omitempty"`
-	Online      bool   `json:"online,omitempty"`
+	ShowPhone   bool   `json:"show_phone,omitempty"`
 }
 
 type UpdatePasswordDTO struct {
