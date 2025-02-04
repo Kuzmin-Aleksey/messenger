@@ -75,6 +75,7 @@ func (h *Handler) InitRouter() {
 	h.router.HandleFunc("/self/delete", h.MwLogging(h.MwWithAuth(h.DeleteUser))).Methods(http.MethodPost)
 	h.router.HandleFunc("/self/set-show-phone", h.MwLogging(h.MwWithAuth(h.SetShowPhone))).Methods(http.MethodPost)
 
+	h.router.HandleFunc("/users/check-username", h.MwLogging(h.CheckUsername)).Methods(http.MethodGet)
 	h.router.HandleFunc("/users/status", h.MwLogging(h.MwWithAuth(h.CheckOnline))).Methods(http.MethodGet)
 	h.router.HandleFunc("/users/find", h.MwLogging(h.MwWithAuth(h.FindUser))).Methods(http.MethodGet)
 	h.router.HandleFunc("/users/create-chat", h.MwLogging(h.MwWithAuth(h.CreateChatWithUser))).Methods(http.MethodPost)

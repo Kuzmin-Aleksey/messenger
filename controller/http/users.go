@@ -47,6 +47,23 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type CheckUsernameResponse struct {
+	Exist bool `json:"exist"`
+}
+
+func (h *Handler) CheckUsername(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		h.writeJSONError(w, errors.New(err, models.ErrParseForm, http.StatusBadRequest))
+	}
+	username := r.Form.Get("username")
+	exist, err := h.users.CheckUsername(r.Context(), username)
+	if err != nil {
+		h.writeJSONError(w, err)
+		return
+	}
+	h.writeJSON(w, http.StatusOK, CheckUsernameResponse{Exist: exist})
+}
+
 func (h *Handler) FindUser(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		h.writeJSONError(w, errors.New(err, models.ErrParseForm, http.StatusBadRequest))

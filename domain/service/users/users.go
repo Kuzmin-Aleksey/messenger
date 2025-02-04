@@ -101,6 +101,19 @@ func (s *UsersService) ConfirmPhone(ctx context.Context, code string) *errors.Er
 	return nil
 }
 
+func (s *UsersService) CheckUsername(ctx context.Context, username string) (bool, *errors.Error) {
+	if len(username) == 0 {
+		return false, errors.New1Msg("missing username", http.StatusBadRequest)
+	}
+	if _, err := s.usersRepo.FindByName(ctx, username); err != nil {
+		if err.Code == http.StatusNotFound {
+			return false, nil
+		}
+		return false, err.Trace()
+	}
+	return true, nil
+}
+
 func (s *UsersService) UpdateUser(ctx context.Context, dto *UpdateUserDTO) (err *errors.Error) {
 	ctx, err = db.WithTx(ctx, s.usersRepo)
 	if err != nil {
