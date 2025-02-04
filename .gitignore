@@ -6,3 +6,4 @@ data/cache/redis/test_config.go
 .$db.drawio.bkp
 
 docker-compose.yml
+messenger.sql

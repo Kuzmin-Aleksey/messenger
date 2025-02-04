@@ -20,7 +20,7 @@ func NewUsers(db DB) *Users {
 }
 
 func (u *Users) New(ctx context.Context, user *models.User) *errors.Error {
-	res, err := u.DB.ExecContext(ctx, "INSERT INTO users (phone, password, name, real_namel, show_phone) VALUES (?, ?, ?, ?, ?)",
+	res, err := u.DB.ExecContext(ctx, "INSERT INTO users (phone, password, name, real_name, show_phone) VALUES (?, ?, ?, ?, ?)",
 		user.Phone, hashPassword(user.Password), user.Name, user.RealName, user.ShowPhone)
 
 	if err != nil {
@@ -46,7 +46,7 @@ func (u *Users) UpdateUsername(ctx context.Context, userId int, name string) *er
 }
 
 func (u *Users) UpdateRealName(ctx context.Context, userId int, realName string) *errors.Error {
-	if _, err := u.DB.ExecContext(ctx, "UPDATE users SET real_namel = ? WHERE id = ?", realName, userId); err != nil {
+	if _, err := u.DB.ExecContext(ctx, "UPDATE users SET real_name = ? WHERE id = ?", realName, userId); err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
