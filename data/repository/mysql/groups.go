@@ -110,6 +110,24 @@ func (g *Groups) GetUsersByGroup(ctx context.Context, id int) ([]int, *errors.Er
 	return users, nil
 }
 
+const checkUserInGroupQuery = `
+SELECT
+    COUNT(*) != 0 AS exist
+FROM user_2_chat
+INNER JOIN messenger.groups g on user_2_chat.chat_id = g.chat_id
+WHERE 
+    user_2_chat.user_id = ? AND
+    g.id = ?
+`
+
+func (g *Groups) CheckUserInGroup(ctx context.Context, userId int, groupId int) (bool, *errors.Error) {
+	var exist bool
+	if err := g.DB.QueryRowContext(ctx, checkUserInGroupQuery, userId, groupId).Scan(&exist); err != nil {
+		return false, errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
+	}
+	return exist, nil
+}
+
 func (g *Groups) GetById(ctx context.Context, id int) (*models.Group, *errors.Error) {
 	var group models.Group
 	if err := g.DB.QueryRowContext(ctx, "SELECT * FROM messenger.groups WHERE id = ?", id).Scan(&group.Id, &group.ChatId, &group.Name); err != nil {

@@ -88,6 +88,14 @@ func (s *GroupService) AddUserToGroup(ctx context.Context, groupId int, userId i
 		return errors.New(fmt.Sprintf("user (%d) tried add user to group (%d)", actionerId, groupId),
 			models.ErrPermissionDenied, http.StatusForbidden)
 	}
+	exist, err := s.groupsRepo.CheckUserInGroup(ctx, groupId, userId)
+	if err != nil {
+		return err.Trace()
+	}
+	if exist {
+		return errors.New1Msg("user already exists", http.StatusBadRequest)
+	}
+
 	group, err := s.groupsRepo.GetById(ctx, groupId)
 	if err != nil {
 		return err.Trace()
@@ -173,6 +181,13 @@ func (s *GroupService) SetUsersRole(ctx context.Context, groupId int, userId int
 		return errors.New(fmt.Sprintf("user (%d) tried set role in group (%d)", actionerId, groupId),
 			models.ErrPermissionDenied, http.StatusForbidden)
 	}
+	exist, err := s.groupsRepo.CheckUserInGroup(ctx, groupId, userId)
+	if err != nil {
+		return err.Trace()
+	}
+	if !exist {
+		return errors.New1Msg("user is not in group", http.StatusBadRequest)
+	}
 
 	if err := s.groupsRepo.SetRole(ctx, userId, groupId, role); err != nil {
 		return err.Trace()
@@ -193,7 +208,6 @@ func (s *GroupService) GetUsersByGroup(ctx context.Context, groupId int) ([]GetU
 		return nil, errors.New(fmt.Sprintf("user (%d) tried get users from group (%d)", actionerId, groupId),
 			models.ErrPermissionDenied, http.StatusForbidden)
 	}
-
 	var resp []GetUsersDTO
 	for _, user := range users {
 		role, err := s.groupsRepo.GetRole(ctx, user, groupId)

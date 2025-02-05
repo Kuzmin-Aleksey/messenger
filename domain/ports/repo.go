@@ -39,6 +39,7 @@ type GroupsRepo interface {
 	GetGroupsByUser(ctx context.Context, userId int) ([]models.Group, *errors.Error)
 	GetGroupByChatId(ctx context.Context, chatId int) (*models.Group, *errors.Error)
 	GetUsersByGroup(ctx context.Context, id int) ([]int, *errors.Error)
+	CheckUserInGroup(ctx context.Context, userId int, groupId int) (bool, *errors.Error)
 	GetById(ctx context.Context, id int) (*models.Group, *errors.Error)
 	SetRole(ctx context.Context, userId int, groupId int, role string) *errors.Error
 	GetRole(ctx context.Context, userId int, groupId int) (string, *errors.Error)
