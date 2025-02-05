@@ -2,6 +2,8 @@ package models
 
 import (
 	"database/sql"
+	errorsutils "errors"
+	"github.com/nyaruka/phonenumbers"
 	"time"
 )
 
@@ -27,4 +29,15 @@ func (u *User) ScanRow(row *sql.Row) error {
 		&u.LastOnline,
 		&u.Confirmed,
 	)
+}
+
+func ParsePhone(phone string) (string, error) {
+	num, err := phonenumbers.Parse(phone, "RU")
+	if err != nil {
+		return "", err
+	}
+	if !phonenumbers.IsValidNumber(num) {
+		return "", errorsutils.New("invalid phone number")
+	}
+	return phonenumbers.Format(num, phonenumbers.E164), nil
 }

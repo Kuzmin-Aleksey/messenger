@@ -9,7 +9,7 @@ import (
 )
 
 func (s *UsersService) AddToContact(ctx context.Context, dto *CreateContactDTO) *errors.Error {
-	phone, e := parsePhone(dto.Phone)
+	phone, e := models.ParsePhone(dto.Phone)
 	if e != nil {
 		return errors.New(e, "invalid phone number", http.StatusBadRequest)
 	}

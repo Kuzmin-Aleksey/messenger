@@ -67,6 +67,7 @@ func NewHandler(
 
 func (h *Handler) InitRouter() {
 	h.router.HandleFunc("/register", h.MwLogging(h.Register)).Methods(http.MethodPost)
+	h.router.HandleFunc("/confirm-phone", h.MwLogging(h.ConfirmPhone)).Methods(http.MethodPost)
 	h.router.HandleFunc("/auth/login/1fa", h.MwLogging(h.Login1FA)).Methods(http.MethodPost)
 	h.router.HandleFunc("/auth/login/2fa", h.MwLogging(h.Login2FA)).Methods(http.MethodPost)
 	h.router.HandleFunc("/auth/refresh-tokens", h.MwLogging(h.UpdateTokens)).Methods(http.MethodPost)

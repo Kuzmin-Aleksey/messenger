@@ -64,6 +64,19 @@ func (h *Handler) CheckUsername(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, CheckUsernameResponse{Exist: exist})
 }
 
+func (h *Handler) ConfirmPhone(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		h.writeJSONError(w, errors.New(err, models.ErrParseForm, http.StatusBadRequest))
+	}
+	phone := r.Form.Get("phone")
+	code := r.Form.Get("code")
+
+	if err := h.users.ConfirmPhone(r.Context(), phone, code); err != nil {
+		h.writeJSONError(w, err)
+		return
+	}
+}
+
 func (h *Handler) FindUser(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		h.writeJSONError(w, errors.New(err, models.ErrParseForm, http.StatusBadRequest))

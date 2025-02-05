@@ -2,8 +2,6 @@ package users
 
 import (
 	"context"
-	errorsutils "errors"
-	"github.com/nyaruka/phonenumbers"
 	"messanger/domain/models"
 	"messanger/domain/ports"
 	"messanger/domain/service/auth"
@@ -56,7 +54,7 @@ func (s *UsersService) CreateUser(ctx context.Context, dto *CreateUserDTO) (err 
 	}
 
 	var e error
-	dto.Phone, e = parsePhone(dto.Phone)
+	dto.Phone, e = models.ParsePhone(dto.Phone)
 	if e != nil {
 		return errors.New(e, "invalid phone number", http.StatusBadRequest)
 	}
@@ -95,10 +93,32 @@ func (s *UsersService) CreateUser(ctx context.Context, dto *CreateUserDTO) (err 
 	return nil
 }
 
-func (s *UsersService) ConfirmPhone(ctx context.Context, code string) *errors.Error {
+func (s *UsersService) SendCode(ctx context.Context, phone string) *errors.Error {
+	phone, e := models.ParsePhone(phone)
+	if e != nil {
+		return errors.New(e, "invalid phone number", http.StatusBadRequest)
+	}
+	user, err := s.usersRepo.FindByPhone(ctx, phone)
+	if err != nil {
+		return err.Trace()
+	}
+	if err := s.phoneConf.ToConfirming(ctx, user.Id, user.Phone); err != nil {
+		return err.Trace()
+	}
+	return nil
+}
+
+func (s *UsersService) ConfirmPhone(ctx context.Context, phone, code string) *errors.Error {
 	userId, err := s.phoneConf.ConfirmUser(ctx, code)
 	if err != nil {
 		return err.Trace()
+	}
+	user, err := s.usersRepo.GetById(ctx, userId)
+	if err != nil {
+		return err.Trace()
+	}
+	if phone != user.Phone {
+		return errors.New1Msg("invalid phone number", http.StatusUnauthorized)
 	}
 	if err := s.usersRepo.SetConfirm(ctx, userId, true); err != nil {
 		return err.Trace()
@@ -194,8 +214,9 @@ func (s *UsersService) UpdatePassword(ctx context.Context, oldPass, newPass stri
 }
 
 func (s *UsersService) UpdatePhone(ctx context.Context, phone string) *errors.Error {
-	if len(phone) == 0 {
-		return errors.New1Msg("missing phone", http.StatusBadRequest)
+	phone, e := models.ParsePhone(phone)
+	if e != nil {
+		return errors.New(e, "invalid phone number", http.StatusBadRequest)
 	}
 	s.updatePhoneMu.Lock()
 
@@ -355,7 +376,7 @@ func (s *UsersService) GetLastOnline(ctx context.Context, userId int) (*time.Tim
 }
 
 func (s *UsersService) FindByPhone(ctx context.Context, phoneNum string) (*models.User, *errors.Error) {
-	phoneNum, e := parsePhone(phoneNum)
+	phoneNum, e := models.ParsePhone(phoneNum)
 	if e != nil {
 		return nil, errors.New(e, "invalid phone number", http.StatusBadRequest)
 	}
@@ -404,15 +425,4 @@ func (s *UsersService) DeleteUser(ctx context.Context) (err *errors.Error) {
 		return err.Trace()
 	}
 	return nil
-}
-
-func parsePhone(phone string) (string, error) {
-	num, err := phonenumbers.Parse(phone, "RU")
-	if err != nil {
-		return "", err
-	}
-	if !phonenumbers.IsValidNumber(num) {
-		return "", errorsutils.New("invalid phone number")
-	}
-	return phonenumbers.Format(num, phonenumbers.E164), nil
 }

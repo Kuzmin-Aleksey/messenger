@@ -51,6 +51,10 @@ func NewAuthService(cache ports.Cache, repo ports.UsersRepo, phoneConf PhoneConf
 }
 
 func (s *AuthService) Login1FA(ctx context.Context, phone, password string) *errors.Error {
+	phone, e := models.ParsePhone(phone)
+	if e != nil {
+		return errors.New(e, "invalid phone number", http.StatusBadRequest)
+	}
 	attempts, err := s.cache.Get(ctx, phone)
 	if err != nil {
 		return err.Trace()
@@ -84,6 +88,10 @@ func (s *AuthService) Login1FA(ctx context.Context, phone, password string) *err
 }
 
 func (s *AuthService) Login2FA(ctx context.Context, phone string, code string) (*models.Tokens, *errors.Error) {
+	phone, e := models.ParsePhone(phone)
+	if e != nil {
+		return nil, errors.New(e, "invalid phone number", http.StatusBadRequest)
+	}
 	userId, err := s.phoneConf.ConfirmUser(ctx, code)
 	if err != nil {
 		return nil, err.Trace()
