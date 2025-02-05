@@ -10,6 +10,7 @@ import (
 	"messanger/pkg/db"
 	"messanger/pkg/errors"
 	"net/http"
+	"regexp"
 	"sync"
 	"time"
 )
@@ -36,18 +37,22 @@ func NewUsersService(
 	chatsRepo ports.ChatsRepo,
 	phoneConf PhoneConfirmator,
 ) *UsersService {
-	s := &UsersService{
+	return &UsersService{
 		usersRepo:    usersRepo,
 		contactsRepo: contactsRepo,
 		chatsRepo:    chatsRepo,
 		phoneConf:    phoneConf,
 	}
-	return s
 }
+
+var usernameRegexp = regexp.MustCompile("^[a-zA-Z0-9_]{4,32}$")
 
 func (s *UsersService) CreateUser(ctx context.Context, dto *CreateUserDTO) (err *errors.Error) {
 	if len(dto.Name) == 0 || len(dto.RealName) == 0 || len(dto.Password) == 0 || len(dto.Phone) == 0 {
-		return errors.New1Msg("invalid user info", http.StatusBadRequest)
+		return errors.New1Msg("missing user info", http.StatusBadRequest)
+	}
+	if usernameRegexp.MatchString(dto.Name) {
+		return errors.New1Msg("invalid username", http.StatusBadRequest)
 	}
 
 	var e error
@@ -104,6 +109,9 @@ func (s *UsersService) ConfirmPhone(ctx context.Context, code string) *errors.Er
 func (s *UsersService) CheckUsername(ctx context.Context, username string) (bool, *errors.Error) {
 	if len(username) == 0 {
 		return false, errors.New1Msg("missing username", http.StatusBadRequest)
+	}
+	if usernameRegexp.MatchString(username) {
+		return false, errors.New1Msg("invalid username", http.StatusBadRequest)
 	}
 	if _, err := s.usersRepo.FindByName(ctx, username); err != nil {
 		if err.Code == http.StatusNotFound {
