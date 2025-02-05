@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"messanger/config"
 	"messanger/domain/models"
-	ports2 "messanger/domain/ports"
+	"messanger/domain/ports"
 	"messanger/pkg/errors"
 	"net/http"
 	"time"
@@ -16,8 +16,8 @@ import (
 const ErrInvalidToken = "invalid token"
 
 type AuthService struct {
-	cache     ports2.Cache
-	repo      ports2.UsersRepo
+	cache     ports.Cache
+	repo      ports.UsersRepo
 	phoneConf PhoneConfirmator
 
 	accessTokenTTL  time.Duration
@@ -33,7 +33,7 @@ type PhoneConfirmator interface {
 	ConfirmUser(ctx context.Context, code string) (int, *errors.Error)
 }
 
-func NewAuthService(cache ports2.Cache, repo ports2.UsersRepo, phoneConf PhoneConfirmator, cfg *config.AuthServiceConfig) *AuthService {
+func NewAuthService(cache ports.Cache, repo ports.UsersRepo, phoneConf PhoneConfirmator, cfg *config.AuthServiceConfig) *AuthService {
 	accessTokenTTL := time.Duration(cfg.AccessTokenTTLMin) * time.Minute
 	refreshTokenTTL := time.Duration(cfg.RefreshTokenTTLDays) * time.Hour * 24
 	blockDuration := time.Duration(cfg.DurationBlockUserMin) * time.Minute
