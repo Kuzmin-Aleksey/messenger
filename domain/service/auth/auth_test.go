@@ -2,8 +2,8 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"messanger/config"
 	cache "messanger/data/cache/local"
 	sms "messanger/data/sms/sms_chan"
@@ -33,7 +33,6 @@ func init() {
 }
 
 func TestAuth(t *testing.T) {
-
 	user := &models.User{
 		Id:        1,
 		Phone:     "70000000000",
@@ -56,12 +55,22 @@ func TestAuth(t *testing.T) {
 	}
 
 	code := <-smsChan.Chan
-	fmt.Println(user.Phone, code)
+
 	tokens, err := auth.Login2FA(context.Background(), user.Phone, code)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
-	t.Log(tokens)
+	userId, err := auth.DecodeAccessToken(tokens.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	require.Equal(t, user.Id, userId, "invalid user id in token")
 
+	if _, err := auth.UpdateTokens(context.Background(), tokens.RefreshToken); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := auth.UpdateTokens(context.Background(), tokens.RefreshToken); err == nil {
+		t.Fatal("refresh token should not be updated")
+	}
 }

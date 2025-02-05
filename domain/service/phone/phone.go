@@ -22,8 +22,9 @@ type PhoneService struct {
 
 func NewPhoneService(sms SmsSender, cache ports.Cache) *PhoneService {
 	return &PhoneService{
-		cache: cache,
-		sms:   sms,
+		cache:   cache,
+		sms:     sms,
+		codeTTL: time.Hour,
 	}
 }
 
