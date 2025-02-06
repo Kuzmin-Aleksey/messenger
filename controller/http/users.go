@@ -54,6 +54,7 @@ type CheckUsernameResponse struct {
 func (h *Handler) CheckUsername(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		h.writeJSONError(w, errors.New(err, models.ErrParseForm, http.StatusBadRequest))
+		return
 	}
 	username := r.Form.Get("username")
 	exist, err := h.users.CheckUsername(r.Context(), username)
@@ -64,9 +65,23 @@ func (h *Handler) CheckUsername(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, CheckUsernameResponse{Exist: exist})
 }
 
+func (h *Handler) SendCode(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		h.writeJSONError(w, errors.New(err, models.ErrParseForm, http.StatusBadRequest))
+		return
+	}
+	phone := r.Form.Get("phone")
+
+	if err := h.users.SendCode(r.Context(), phone); err != nil {
+		h.writeJSONError(w, err)
+		return
+	}
+}
+
 func (h *Handler) ConfirmPhone(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		h.writeJSONError(w, errors.New(err, models.ErrParseForm, http.StatusBadRequest))
+		return
 	}
 	phone := r.Form.Get("phone")
 	code := r.Form.Get("code")
@@ -107,6 +122,7 @@ func (h *Handler) SetShowPhone(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.users.SetShowPhone(r.Context(), v); err != nil {
 		h.writeJSONError(w, err)
+		return
 	}
 }
 
@@ -130,6 +146,7 @@ func (h *Handler) CreateChatWithUser(w http.ResponseWriter, r *http.Request) {
 	chat, err := h.users.CreateChatWithUser(r.Context(), userId)
 	if err != nil {
 		h.writeJSONError(w, err)
+		return
 	}
 	h.writeJSON(w, http.StatusOK, chat)
 }
