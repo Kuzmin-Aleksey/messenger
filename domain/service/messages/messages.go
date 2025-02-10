@@ -26,18 +26,23 @@ func NewMessagesService(repo ports.MessagesRepo, chatsRepo ports.ChatsRepo) *Mes
 	}
 }
 
-func (s *MessagesService) CreateMessage(ctx context.Context, m *models.Message) (err *errors.Error) {
+func (s *MessagesService) CreateMessage(ctx context.Context, dto *CreateMessageDTO) (err *errors.Error) {
 	userId := auth.ExtractUser(ctx)
-	ok, err := s.chatsRepo.CheckUserInChat(ctx, userId, m.ChatId)
+	ok, err := s.chatsRepo.CheckUserInChat(ctx, userId, dto.ChatId)
 	if err != nil {
 		return err.Trace()
 	}
 	if !ok {
-		return errors.New(fmt.Sprintf("user (%d) tried to create a message in the chat (%d)", userId, m.ChatId),
+		return errors.New(fmt.Sprintf("user (%d) tried to create a message in the chat (%d)", userId, dto.ChatId),
 			models.ErrPermissionDenied, http.StatusForbidden)
 	}
-	m.UserId = userId
-	m.Time = time.Now().UTC()
+
+	message := &models.Message{
+		ChatId: dto.ChatId,
+		UserId: userId,
+		Text:   dto.Text,
+		Time:   time.Now(),
+	}
 
 	ctx, err = db.WithTx(ctx, s.repo)
 	if err != nil {
@@ -45,15 +50,15 @@ func (s *MessagesService) CreateMessage(ctx context.Context, m *models.Message) 
 	}
 	defer db.CommitOnDefer(ctx, &err)
 
-	if err := s.repo.New(ctx, m); err != nil {
+	if err := s.repo.New(ctx, message); err != nil {
 		return err.Trace()
 	}
-	if err := s.chatsRepo.UpdateTime(ctx, m.ChatId, m.Time); err != nil {
+	if err := s.chatsRepo.UpdateTime(ctx, message.ChatId, message.Time); err != nil {
 		return err.Trace()
 	}
 
 	if s.connManager != nil {
-		go s.connManager.onCreateMessage(m)
+		go s.connManager.onCreateMessage(message)
 	}
 	return nil
 }

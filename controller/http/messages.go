@@ -10,7 +10,7 @@ import (
 )
 
 func (h *Handler) CreateMessage(w http.ResponseWriter, r *http.Request) {
-	m := new(models.Message)
+	m := new(messages.CreateMessageDTO)
 	if err := json.NewDecoder(r.Body).Decode(m); err != nil {
 		h.writeJSONError(w, errors.New(err, models.ErrParseJson, http.StatusBadRequest))
 		return

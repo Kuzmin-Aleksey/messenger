@@ -2,6 +2,11 @@ package messages
 
 import "time"
 
+type CreateMessageDTO struct {
+	ChatId int    `json:"chat_id"`
+	Text   string `json:"text"`
+}
+
 type GetMessagesDTO struct {
 	ChatId        int `json:"chat_id"`
 	LastMessageId int `json:"last_message_id"`
