@@ -7,14 +7,22 @@ import (
 	"messanger/domain/models"
 	"messanger/pkg/errors"
 	"net/http"
+	"time"
 )
 
 type Contacts struct {
 	DB
 }
 
-func NewContacts(db DB) *Contacts {
-	return &Contacts{db}
+func NewContacts(db DB) (*Contacts, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := openAndExec(ctx, db, "data/repository/mysql/scripts/create_contacts.sql"); err != nil {
+		return nil, errorsutils.New("create table contacts error: " + err.Error())
+	}
+
+	return &Contacts{db}, nil
 }
 
 func (c *Contacts) Create(ctx context.Context, contact *models.Contact) *errors.Error {

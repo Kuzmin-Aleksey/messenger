@@ -14,8 +14,18 @@ type Chats struct {
 	DB
 }
 
-func NewChats(db DB) *Chats {
-	return &Chats{db}
+func NewChats(db DB) (*Chats, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	if err := openAndExec(ctx, db, "data/repository/mysql/scripts/create_chats.sql"); err != nil {
+		return nil, errorsutils.New("create table chats error: " + err.Error())
+	}
+	if err := openAndExec(ctx, db, "data/repository/mysql/scripts/create_user_2_chat.sql"); err != nil {
+		return nil, errorsutils.New("create table user_2_chat error: " + err.Error())
+	}
+
+	return &Chats{db}, nil
 }
 
 func (c *Chats) New(ctx context.Context, chat *models.Chat) (e *errors.Error) {
@@ -151,9 +161,6 @@ func (c *Chats) GetById(ctx context.Context, id int) (*models.Chat, *errors.Erro
 
 func (c *Chats) Delete(ctx context.Context, id int) (e *errors.Error) {
 	if _, err := c.DB.ExecContext(ctx, "DELETE FROM chats WHERE id = ?", id); err != nil {
-		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
-	}
-	if _, err := c.DB.ExecContext(ctx, "DELETE FROM user_2_chat WHERE chat_id = ?", id); err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil

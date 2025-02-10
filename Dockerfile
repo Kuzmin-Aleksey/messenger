@@ -11,6 +11,7 @@ RUN go build -o main cmd/main.go
 FROM scratch
 COPY --from=builder /app/config/config.yaml /config/config.yaml
 COPY --from=builder /app/main /main
+COPY --from=builder /app/data/repository/mysql/scripts /data/repository/mysql/scripts
 
 EXPOSE 8080
 

@@ -7,14 +7,21 @@ import (
 	"messanger/domain/models"
 	"messanger/pkg/errors"
 	"net/http"
+	"time"
 )
 
 type Messages struct {
 	DB
 }
 
-func NewMessages(db DB) *Messages {
-	return &Messages{db}
+func NewMessages(db DB) (*Messages, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := openAndExec(ctx, db, "data/repository/mysql/scripts/create_messages.sql"); err != nil {
+		return nil, errorsutils.New("create table messages error: " + err.Error())
+	}
+	return &Messages{db}, nil
 }
 
 func (m *Messages) New(ctx context.Context, message *models.Message) *errors.Error {

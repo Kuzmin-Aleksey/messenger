@@ -38,17 +38,32 @@ func Run(cfgPath string) {
 
 	r, err := redis.Connect(cfg.Redis)
 	if err != nil {
-		log.Fatal("r connect error: ", err)
+		log.Fatal("redis connect error: ", err)
 	}
 	defer r.Close()
 
 	smsSender := sms.NewCmdSmsAdapter()
 
-	chatsRepo := mysql.NewChats(TxDB)
-	groupsRepo := mysql.NewGroups(TxDB)
-	contactsRepo := mysql.NewContacts(TxDB)
-	userRepo := mysql.NewUsers(TxDB)
-	messagesRepo := mysql.NewMessages(TxDB)
+	chatsRepo, err := mysql.NewChats(TxDB)
+	if err != nil {
+		log.Fatal("chats repo: ", err)
+	}
+	groupsRepo, err := mysql.NewGroups(TxDB)
+	if err != nil {
+		log.Fatal("groups repo: ", err)
+	}
+	contactsRepo, err := mysql.NewContacts(TxDB)
+	if err != nil {
+		log.Fatal("contacts repo: ", err)
+	}
+	userRepo, err := mysql.NewUsers(TxDB)
+	if err != nil {
+		log.Fatal("users repo: ", err)
+	}
+	messagesRepo, err := mysql.NewMessages(TxDB)
+	if err != nil {
+		log.Fatal("messages repo: ", err)
+	}
 	c := cache.NewCache(r)
 
 	phoneConf := phone.NewPhoneService(smsSender, c)

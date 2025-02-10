@@ -8,18 +8,29 @@ import (
 	"messanger/domain/models"
 	"messanger/pkg/errors"
 	"net/http"
+	"time"
 )
 
 type Groups struct {
 	DB
 }
 
-func NewGroups(db DB) *Groups {
-	return &Groups{DB: db}
+func NewGroups(db DB) (*Groups, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	if err := openAndExec(ctx, db, "data/repository/mysql/scripts/create_groups.sql"); err != nil {
+		return nil, errorsutils.New("create table groups error: " + err.Error())
+	}
+	if err := openAndExec(ctx, db, "data/repository/mysql/scripts/create_roles.sql"); err != nil {
+		return nil, errorsutils.New("create table roles error: " + err.Error())
+	}
+
+	return &Groups{DB: db}, nil
 }
 
 func (g *Groups) New(ctx context.Context, group *models.Group) *errors.Error {
-	res, err := g.DB.ExecContext(ctx, "INSERT INTO messenger.groups (chat_id, name) VALUES (?, ?)", group.ChatId, group.Name)
+	res, err := g.DB.ExecContext(ctx, "INSERT INTO `groups` (chat_id, name) VALUES (?, ?)", group.ChatId, group.Name)
 	if err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
@@ -35,21 +46,13 @@ func (g *Groups) Update(ctx context.Context, group *models.Group) *errors.Error 
 	if len(group.Name) == 0 {
 		return nil
 	}
-	if _, err := g.DB.ExecContext(ctx, "UPDATE messenger.groups SET name = ? WHERE id = ?", group.Name, group.Id); err != nil {
+	if _, err := g.DB.ExecContext(ctx, "UPDATE `groups` SET name = ? WHERE id = ?", group.Name, group.Id); err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil
 }
 
-const getGroupsByUserQuery = `
-SELECT
-	g.id,
-	g.chat_id,
-	g.name
-FROM user_2_chat
-INNER JOIN messenger.groups g ON g.chat_id = user_2_chat.chat_id
-WHERE user_2_chat.user_id = ?
-`
+const getGroupsByUserQuery = "SELECT g.id, g.chat_id, g.name FROM user_2_chat INNER JOIN `groups` g ON g.chat_id = user_2_chat.chat_id WHERE user_2_chat.user_id = ?"
 
 func (g *Groups) GetGroupsByUser(ctx context.Context, userId int) ([]models.Group, *errors.Error) {
 	rows, err := g.DB.QueryContext(ctx, getGroupsByUserQuery, userId)
@@ -73,7 +76,7 @@ func (g *Groups) GetGroupsByUser(ctx context.Context, userId int) ([]models.Grou
 
 func (g *Groups) GetGroupByChatId(ctx context.Context, chatId int) (*models.Group, *errors.Error) {
 	var group models.Group
-	if err := g.DB.QueryRowContext(ctx, "SELECT * FROM messenger.groups WHERE chat_id = ?", chatId).Scan(&group.Id, &group.ChatId, &group.Name); err != nil {
+	if err := g.DB.QueryRowContext(ctx, "SELECT * FROM `groups` WHERE chat_id = ?", chatId).Scan(&group.Id, &group.ChatId, &group.Name); err != nil {
 		if errorsutils.Is(err, sql.ErrNoRows) {
 			return nil, errors.New(err, fmt.Sprintf("group not found by chat id = %d", chatId), http.StatusNotFound)
 		}
@@ -86,7 +89,7 @@ const getUsersByGroupQuery = `
 SELECT 
  user_2_chat.user_id
 FROM user_2_chat
-INNER JOIN messenger.groups g ON g.chat_id = user_2_chat.chat_id
+INNER JOIN ` + "`groups`" + ` g ON g.chat_id = user_2_chat.chat_id
 WHERE g.id = ?
 `
 
@@ -114,7 +117,7 @@ const checkUserInGroupQuery = `
 SELECT
     COUNT(*) != 0 AS exist
 FROM user_2_chat
-INNER JOIN messenger.groups g on user_2_chat.chat_id = g.chat_id
+INNER JOIN ` + "`groups`" + ` g on user_2_chat.chat_id = g.chat_id
 WHERE 
     user_2_chat.user_id = ? AND
     g.id = ?
@@ -130,7 +133,7 @@ func (g *Groups) CheckUserInGroup(ctx context.Context, userId int, groupId int) 
 
 func (g *Groups) GetById(ctx context.Context, id int) (*models.Group, *errors.Error) {
 	var group models.Group
-	if err := g.DB.QueryRowContext(ctx, "SELECT * FROM messenger.groups WHERE id = ?", id).Scan(&group.Id, &group.ChatId, &group.Name); err != nil {
+	if err := g.DB.QueryRowContext(ctx, "SELECT * FROM `groups` WHERE id = ?", id).Scan(&group.Id, &group.ChatId, &group.Name); err != nil {
 		if errorsutils.Is(err, sql.ErrNoRows) {
 			return nil, errors.New(err, "group not found", http.StatusNotFound)
 		}
@@ -170,7 +173,7 @@ func (g *Groups) GetRole(ctx context.Context, userId int, groupId int) (string, 
 }
 
 func (g *Groups) Delete(ctx context.Context, id int) (e *errors.Error) {
-	if _, err := g.DB.ExecContext(ctx, "DELETE FROM messenger.groups WHERE id = ?", id); err != nil {
+	if _, err := g.DB.ExecContext(ctx, "DELETE FROM `groups` WHERE id = ?", id); err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil

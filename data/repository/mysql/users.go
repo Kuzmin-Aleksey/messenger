@@ -15,8 +15,18 @@ type Users struct {
 	DB
 }
 
-func NewUsers(db DB) *Users {
-	return &Users{db}
+func NewUsers(db DB) (*Users, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	if err := openAndExec(ctx, db, "data/repository/mysql/scripts/create_users.sql"); err != nil {
+		return nil, errorsutils.New("create table users error: " + err.Error())
+	}
+	if err := openAndExec(ctx, db, "data/repository/mysql/scripts/create_user_2_chat.sql"); err != nil {
+		return nil, errorsutils.New("create table user_2_chat error: " + err.Error())
+	}
+
+	return &Users{db}, nil
 }
 
 func (u *Users) New(ctx context.Context, user *models.User) *errors.Error {
@@ -139,9 +149,6 @@ func (u *Users) GetByIdWithPass(ctx context.Context, id int, password string) (*
 
 func (u *Users) Delete(ctx context.Context, id int) (e *errors.Error) {
 	if _, err := u.DB.ExecContext(ctx, "DELETE FROM users WHERE id = ?", id); err != nil {
-		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
-	}
-	if _, err := u.DB.ExecContext(ctx, "DELETE FROM user_2_chat WHERE user_id = ?", id); err != nil {
 		return errors.New(err, models.ErrDatabaseError, http.StatusInternalServerError)
 	}
 	return nil

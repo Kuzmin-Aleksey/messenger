@@ -424,5 +424,7 @@ func (s *UsersService) DeleteUser(ctx context.Context) (err *errors.Error) {
 	if err := s.usersRepo.Delete(ctx, userId); err != nil {
 		return err.Trace()
 	}
+
+	//db.Rollback(ctx)
 	return nil
 }

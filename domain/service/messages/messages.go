@@ -162,6 +162,15 @@ func (s *MessagesService) GetFromChat(ctx context.Context, dto *GetMessagesDTO) 
 	return resp, nil
 }
 
+// GetById for system usage!
+func (s *MessagesService) GetById(ctx context.Context, id int) (*models.Message, *errors.Error) {
+	m, err := s.repo.GetById(ctx, id)
+	if err != nil {
+		return nil, err.Trace()
+	}
+	return m, nil
+}
+
 func (s *MessagesService) GetMinMassageIdInChat(ctx context.Context, chatId int) (int, *errors.Error) {
 	id, err := s.repo.GetMinMassageIdInChat(ctx, chatId)
 	if err != nil {
