@@ -425,6 +425,5 @@ func (s *UsersService) DeleteUser(ctx context.Context) (err *errors.Error) {
 		return err.Trace()
 	}
 
-	//db.Rollback(ctx)
 	return nil
 }
