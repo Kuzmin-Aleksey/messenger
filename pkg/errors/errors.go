@@ -16,7 +16,7 @@ type Error struct {
 
 func New(msg any, userMsg any, code int) *Error {
 	return &Error{
-		TracePath:   getTrace(2),
+		TracePath:   getCaller(),
 		Msg:         fmt.Sprint(msg),
 		UserMessage: fmt.Sprint(userMsg),
 		Code:        code,
@@ -25,7 +25,7 @@ func New(msg any, userMsg any, code int) *Error {
 
 func New1Msg(msg any, code int) *Error {
 	return &Error{
-		TracePath:   getTrace(2),
+		TracePath:   getCaller(),
 		UserMessage: fmt.Sprint(msg),
 		Code:        code,
 	}
@@ -39,40 +39,15 @@ func (e *Error) Error() string {
 }
 
 func (e *Error) Trace() *Error {
-	e.TracePath = getTrace(2) + " > " + e.TracePath
+	e.TracePath = getCaller() + " > " + e.TracePath
 	return e
 }
 
 func Trace(err error) error {
-	return errors.New(getTrace(2) + " > " + err.Error())
+	return errors.New(getCaller() + " > " + err.Error())
 }
 
-func getTrace(skip int) string {
-	pc, f, l, _ := runtime.Caller(skip)
-	callerFunc := runtime.FuncForPC(pc)
-	callerFunc.Name()
-	return trimPath(f) + ":" + strconv.Itoa(l) + " " + trimFuncPath(callerFunc.Name())
-}
-
-func trimPath(path string) string {
-	s := false
-
-	for i := len(path) - 1; i != 0; i-- {
-		if path[i] == '/' {
-			if s {
-				return path[i:]
-			}
-			s = true
-		}
-	}
-	return path
-}
-
-func trimFuncPath(path string) string {
-	for i := len(path) - 1; i != 0; i-- {
-		if path[i] == '.' {
-			return path[i:]
-		}
-	}
-	return path
+func getCaller() string {
+	pc, _, line, _ := runtime.Caller(2)
+	return runtime.FuncForPC(pc).Name() + ":" + strconv.Itoa(line)
 }
