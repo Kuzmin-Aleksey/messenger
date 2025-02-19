@@ -218,20 +218,24 @@ func (s *UsersService) UpdatePhone(ctx context.Context, phone string) *errors.Er
 	if e != nil {
 		return errors.New(e, "invalid phone number", http.StatusBadRequest)
 	}
-	s.updatePhoneMu.Lock()
-
-	if err := s.checkPhoneExist(ctx, phone); err != nil {
-		s.updatePhoneMu.Unlock()
-		return err.Trace()
-	}
 
 	userId := auth.ExtractUser(ctx)
 
-	if err := s.usersRepo.UpdatePhone(ctx, userId, phone); err != nil {
-		s.updatePhoneMu.Unlock()
-		return err.Trace()
+	if err := func() *errors.Error {
+		s.updatePhoneMu.Lock()
+		defer s.updatePhoneMu.Unlock()
+
+		if err := s.checkPhoneExist(ctx, phone); err != nil {
+			return err.Trace()
+		}
+		if err := s.usersRepo.UpdatePhone(ctx, userId, phone); err != nil {
+			return err.Trace()
+		}
+
+		return nil
+	}(); err != nil {
+		return err
 	}
-	s.updatePhoneMu.Unlock()
 
 	if err := s.phoneConf.ToConfirming(ctx, userId, phone); err != nil {
 		return err.Trace()
