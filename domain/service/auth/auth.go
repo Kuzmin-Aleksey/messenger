@@ -168,7 +168,7 @@ func (s *AuthService) DecodeAccessToken(access string) (int, *errors.Error) {
 
 		return s.accessTokenKey, nil
 	})
-	_ = "transaction"
+
 	if err != nil {
 		return 0, errors.New(err, ErrInvalidToken, http.StatusUnauthorized)
 	}
